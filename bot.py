@@ -23,11 +23,12 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-current_spawn = {}
-tentativas_erradas = {}
-contador_mensagens = {}
+bot.current_spawn = {}
+bot.tentativas_erradas = {}
+bot.contador_mensagens = {}
 
 spawn_lock = asyncio.Lock()
+bot.spawn_lock = spawn_lock
 
 bot.dex = []
 
@@ -105,20 +106,16 @@ async def on_ready():
     print(f"Logado como {bot.user}")
 
     bot.pool = await conectar()
-
     bot.developer_ids = bot_developer_ids
     bot.spawn_personagem = spawn_personagem
     bot.buscar_carta_aleatoria = buscar_carta_aleatoria
-    bot.current_spawn = current_spawn
-    bot.tentativas_erradas = tentatives_erradas
-    bot.spawn_lock = spawn_lock
     bot.normalizar = normalizar
     bot.url_carta = url_carta
     bot.url_preview = url_preview
     bot.limpar_dex = limpar_dex
 
     await carregar_dex_cache()
-
+    
     # --- CARREGAMENTO DINÂMICO DE COGS ---
     caminho_commands = os.path.join(os.path.dirname(__file__), "commands")
     
