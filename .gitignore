@@ -1,17 +1,24 @@
-# Arquivo de configuração local (SENHAS E TOKENS)
+# ==========================================
+# CartoonDex - Configurações de Ignore do Git
+# ==========================================
+
+# Arquivo de configuração local com TOKENS e SENHAS (CRÍTICO)
 .env
 
-# Arquivos do ambiente virtual do Python (se você usar)
-venv/
-.venv/
-env/
-
-# Arquivos que o Python gera automaticamente e que não precisam ir para o GitHub
+# Pastas e arquivos gerados automaticamente pelo Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Arquivos temporários do sistema operacional
+# Arquivos do ambiente virtual do Python (caso utilize no futuro)
+venv/
+.venv/
+env/
+
+# Arquivos temporários de sistemas operacionais
 .DS_Store
 Thumbs.db
+
+# Opcional: Descomente a linha abaixo se não quiser enviar arquivos de dados locais (.json)
+# data/*.json
