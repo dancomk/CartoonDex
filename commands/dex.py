@@ -72,10 +72,11 @@ class Dex(commands.Cog):
         user_id = interaction.user.id
 
         async with self.pool.acquire() as conn:
+            # ALTERAÇÃO: O JOIN agora liga diretamente as colunas dex e skin_id de ambas as tabelas
             rows = await conn.fetch("""
                 SELECT d.dex, d.nome, d.skin_id, d.skin, COALESCE(i.quantidade, 0) AS quantidade
                 FROM dex d
-                LEFT JOIN inventario i ON i.carta_id = d.id AND i.user_id = $1
+                LEFT JOIN inventario i ON i.dex = d.dex AND i.skin_id = d.skin_id AND i.user_id = $1
                 ORDER BY d.dex ASC, d.skin_id ASC;
             """, user_id)
 

@@ -43,10 +43,11 @@ def limpar_dex(dex):
 
 async def carregar_dex_cache():
     async with bot.pool.acquire() as conn:
+        # ALTERAÇÃO: Removido a coluna 'id' do SELECT
         rows = await conn.fetch("""
-            SELECT id, dex, nome, skin, skin_id, raridade, dica, aliases
+            SELECT dex, nome, skin, skin_id, raridade, dica, aliases
             FROM dex
-            ORDER BY id
+            ORDER BY dex ASC, skin_id ASC
         """)
 
         bot.dex = [dict(r) for r in rows]
@@ -85,7 +86,7 @@ async def spawn_personagem(canal):
     current_spawn[canal.id] = carta
     tentativas_erradas[canal.id] = 0
 
-    # IMPORTANTE: Agora buscando do seu arquivo atualizado 'commands/embed.py' no singular!
+    # IMPORTANTE: Buscando do arquivo atualizado 'commands/embed.py' no singular!
     from commands.embed import embed_spawn
     embed = embed_spawn(
         nome=carta["nome"],
@@ -109,7 +110,7 @@ async def on_ready():
     bot.spawn_personagem = spawn_personagem
     bot.buscar_carta_aleatoria = buscar_carta_aleatoria
     bot.current_spawn = current_spawn
-    bot.tentativas_erradas = tentativas_erradas
+    bot.tentativas_erradas = tentatives_erradas
     bot.spawn_lock = spawn_lock
     bot.normalizar = normalizar
     bot.url_carta = url_carta
@@ -118,12 +119,11 @@ async def on_ready():
 
     await carregar_dex_cache()
 
-    # --- CARREGAMENTO DINÂMICO DE COGS (INDENTAÇÃO CORRIGIDA) ---
+    # --- CARREGAMENTO DINÂMICO DE COGS ---
     caminho_commands = os.path.join(os.path.dirname(__file__), "commands")
     
     for raiz, pastas, arquivos in os.walk(caminho_commands):
         for arquivo in arquivos:
-            # FILTRO ATUALIZADO: Ignora qualquer arquivo que comece com "embed" (singular)
             if arquivo.endswith(".py") and not arquivo.startswith("__") and not arquivo.startswith("embed"):
                 caminho_relativo = os.path.relpath(os.path.join(raiz, arquivo), os.path.dirname(__file__))
                 nome_extensao = caminho_relativo.replace(os.sep, ".").removesuffix(".py")
@@ -131,11 +131,11 @@ async def on_ready():
                 await bot.load_extension(nome_extensao)
                 print(f"Extensão carregada: {nome_extensao}")
 
-    # Sincroniza globalmente os comandos da árvore principal (públicos e administradores)
+    # Sincroniza globalmente os comandos da árvore principal
     synced_global = await bot.tree.sync()
     print(f"{len(synced_global)} comandos sincronizados globalmente.")
 
-    # Sincroniza os comandos locais da guilda de testes (tudo dentro da pasta commands/dev/)
+    # Sincroniza os comandos locais da guilda de testes
     if DEV_GUILD_ID:
         guild_objeto = discord.Object(id=int(DEV_GUILD_ID))
         synced_guild = await bot.tree.sync(guild=guild_objeto)
@@ -160,13 +160,9 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # canais_monitorados = lista vinda do banco ou bot.spawn_channel_ids
-    # canal_spawn_fixo = ID vindo do banco ou bot.canal_spawn_configurado
     canais_monitorados = getattr(bot, "spawn_channel_ids", [])
     canal_spawn_fixo = getattr(bot, "canal_spawn_configurado", None)
 
-    # REGRA 1: Se a lista de monitoramento NÃO estiver vazia, verifica se o canal atual está nela.
-    # Se estiver VAZIA, ela monitora qualquer canal do servidor automaticamente.
     deve_monitorar = (not canais_monitorados) or (message.channel.id in canais_monitorados)
 
     if deve_monitorar:
@@ -176,8 +172,6 @@ async def on_message(message):
             contador_mensagens[message.channel.id] = 0
 
             if random.random() <= 0.6:
-                # REGRA 2: Se houver canal de spawn configurado, manda nele.
-                # Se NÃO houver, manda no canal atual (onde a 15ª mensagem caiu).
                 if canal_spawn_fixo:
                     canal_destino = bot.get_channel(canal_spawn_fixo) or message.channel
                 else:

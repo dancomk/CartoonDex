@@ -23,21 +23,21 @@ class InfoCarta(commands.Cog):
             async with self.pool.acquire() as conn:
                 termo_limpo = termo.lstrip('#')
 
-                # Busca por número
+                # Busca por número (Removido o 'id' do SELECT)
                 if termo_limpo.isdigit():
                     numero_buscado = int(termo_limpo)
                     rows_dex = await conn.fetch("""
-                        SELECT id, dex, nome, skin_id, skin, raridade, descricao
+                        SELECT dex, nome, skin_id, skin, raridade, descricao
                         FROM dex
                         WHERE CAST(dex AS INTEGER) = $1
                         ORDER BY skin_id ASC;
                     """, numero_buscado)
                     
-                # Busca por nome ou aliases
+                # Busca por nome ou aliases (Removido o 'id' do SELECT)
                 else:
                     nome_para_busca = termo.lower()
                     rows_dex = await conn.fetch("""
-                        SELECT id, dex, nome, skin_id, skin, raridade, descricao
+                        SELECT dex, nome, skin_id, skin, raridade, descricao
                         FROM dex
                         WHERE LOWER(nome) = $1 OR $1 = ANY(aliases)
                         ORDER BY skin_id ASC;
@@ -52,11 +52,11 @@ class InfoCarta(commands.Cog):
 
                 dex_id_encontrado = rows_dex[0]["dex"]
                 
+                # ALTERAÇÃO: Agora busca o inventário direto por dex e skin_id, sem precisar de JOIN
                 rows_inv = await conn.fetch("""
-                    SELECT d.skin_id, i.quantidade
-                    FROM inventario i
-                    JOIN dex d ON i.carta_id = d.id
-                    WHERE d.dex = $1 AND i.user_id = $2;
+                    SELECT skin_id, quantidade
+                    FROM inventario
+                    WHERE dex = $1 AND user_id = $2;
                 """, dex_id_encontrado, user_id)
 
             carta_base = rows_dex[0]
@@ -72,7 +72,7 @@ class InfoCarta(commands.Cog):
                 carta_nome=carta_base["nome"],
                 dex_formatado=self.bot.limpar_dex(carta_base["dex"]),
                 raridade=carta_base["raridade"],
-                descricao=carta_base["descricao"], # Enviando a descrição puxada do banco
+                descricao=carta_base["descricao"], 
                 skins_do_personagem=skins_existentes,
                 skins_usuario=skins_do_usuario,
                 carta_base=carta_base,

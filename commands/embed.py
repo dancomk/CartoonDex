@@ -93,6 +93,28 @@ def embed_dex(descricao_lista, pagina_atual, total_paginas, total_cartas):
     embed.set_footer(text="CartoonDex • Dex")
     return embed
 
+def embed_perfil_provisorio(user_name, avatar_url, biscoitos, total_cartas, dex_desbloqueada, total_cartas_jogo):
+    texto_biscoitos = f"{biscoitos} Biscoito Gatinho" if biscoitos <= 1 else f"{biscoitos} Biscoitos Gatinho"
+    
+    embed = discord.Embed(
+        title=f"📋 Perfil de Treinador - {user_name}",
+        color=discord.Color.from_rgb(255, 255, 255)
+    )
+    embed.set_thumbnail(url=avatar_url)
+    
+    embed.add_field(
+        name="💰 Economia", 
+        value=f"**Saldo:** {texto_biscoitos}", 
+        inline=False
+    )
+    embed.add_field(
+        name="🎴 Coleção", 
+        value=f"**Total de Cartas:** {total_cartas}\n**Progresso da Dex:** {dex_desbloqueada}/{total_cartas_jogo}", 
+        inline=False
+    )
+    embed.set_footer(text="Em breve: Cartão de Perfil em Imagem! 🚀")
+    return embed
+
 def embed_info_carta(carta_nome, dex_formatado, raridade, descricao, skins_do_personagem, skins_usuario, carta_base, url_carta_func):
     """Gera o embed detalhado da carta com imagem centralizada e descrição tratada."""
     embed = discord.Embed(

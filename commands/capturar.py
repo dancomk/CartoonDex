@@ -2,6 +2,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import asyncpg
+
+# IMPORTAÇÃO CENTRALIZADA: Os layouts visuais ficam guardados no seu arquivo de embeds
 from .embed import (
     embed_captura_detalhada,
     embed_sem_carta_ativa
@@ -18,7 +20,7 @@ class Capturar(commands.Cog):
         name="capturar",
         description="Capturar a carta ativa tentando adivinhar o nome."
     )
-    # TRAVA ADICIONADA: 1 execução a cada 5.0 segundos por Usuário (per_user=True)
+    # TRAVA: 1 execução a cada 5.0 segundos por Usuário (per_user=True)
     @app_commands.checks.cooldown(1, 5.0, key=lambda i: i.user.id)
     async def capturar(self, interaction: discord.Interaction, nome: str):
         await interaction.response.defer()
@@ -61,13 +63,13 @@ class Capturar(commands.Cog):
 
         # Salva a captura e a economia no banco de dados
         async with self.pool.acquire() as conn:
-            # Salva o personagem no inventário de cartas
+            # ALTERAÇÃO: Salvando com 'dex' e 'skin_id' diretamente na tabela inventario
             await conn.execute("""
-                INSERT INTO inventario (user_id, carta_id, skin, quantidade)
+                INSERT INTO inventario (user_id, dex, skin_id, quantidade)
                 VALUES ($1, $2, $3, 1)
-                ON CONFLICT (user_id, carta_id, skin)
+                ON CONFLICT (user_id, dex, skin_id)
                 DO UPDATE SET quantidade = inventario.quantidade + 1
-            """, user_id, carta["id"], carta["skin"])
+            """, user_id, carta["dex"], carta["skin_id"])
 
             # ECONOMIA: Salva ou incrementa o saldo de Biscoito Gatinho na tabela usuarios
             await conn.execute("""
@@ -77,24 +79,25 @@ class Capturar(commands.Cog):
                 DO UPDATE SET biscoitos = usuarios.biscoitos + $2
             """, user_id, biscoitos_ganhos)
 
-            # Puxa a quantidade atualizada daquela variação da carta
+            # ALTERAÇÃO: Buscando a quantidade atualizada por dex e skin_id
             qtd = await conn.fetchval("""
                 SELECT quantidade
                 FROM inventario
                 WHERE user_id = $1
-                AND carta_id = $2
-                AND skin IS NOT DISTINCT FROM $3
-            """, user_id, carta["id"], carta["skin"])
+                AND dex = $2
+                AND skin_id = $3
+            """, user_id, carta["dex"], carta["skin_id"])
 
-        # Monta o embed de sucesso delegando tudo para o seu arquivo externo de embeds
-        # Adicionei 'biscoitos_ganhos=biscoitos_ganhos' para você poder usar a informação lá dentro!
+        # Monta o embed delegando a criação visual para a função externa
         embed = embed_captura_detalhada(
             nome=carta["nome"],
             raridade=carta["raridade"],
             dex=self.bot.limpar_dex(carta["dex"]),
             quantidade=qtd,
-            skin=carta["skin"],
-            biscoitos_ganhos=biscoitos_ganhos
+            skin_id=carta["skin_id"],
+            biscoitos_ganhos=biscoitos_ganhos,
+            imagem=carta.get("imagem"),
+            user_mention=interaction.user.mention
         )
 
         await interaction.followup.send(embed=embed)

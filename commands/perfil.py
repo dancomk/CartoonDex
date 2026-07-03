@@ -3,6 +3,9 @@ from discord import app_commands
 from discord.ext import commands
 import asyncpg
 
+# IMPORTAÇÃO CENTRALIZADA: Mantendo o padrão de isolar layouts visuais
+from .embed import embed_perfil_provisorio
+
 class Perfil(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -23,7 +26,7 @@ class Perfil(commands.Cog):
                 user_id
             )
 
-            # 3. Conta quantos códigos 'dex' ÚNICOS o usuário tem (Adendo das Skins resolvido)
+            # 3. Conta quantos códigos 'dex' ÚNICOS o usuário tem
             dex_desbloqueada = await conn.fetchval(
                 "SELECT COUNT(DISTINCT dex) FROM inventario WHERE user_id = $1", 
                 user_id
@@ -50,31 +53,18 @@ class Perfil(commands.Cog):
         
         user = interaction.user
         
-        # Chama a função interna para buscar os dados corrigidos do banco Neon
+        # Chama a função interna para buscar os dados do banco Neon
         dados = await self.puxar_dados_perfil(user.id)
         
-        # Formatação do plural dos biscoitos
-        texto_biscoitos = f"{dados['biscoitos']} Biscoito Gatinho" if dados['biscoitos'] <= 1 else f"{dados['biscoitos']} Biscoitos Gatinho"
-
-        # Criamos um embed tradicional provisório (Passo 1) para testar os números
-        embed = discord.Embed(
-            title=f"📋 Perfil de Treinador - {user.display_name}",
-            color=discord.Color.from_rgb(255, 255, 255)
+        # Monta o embed chamando a função externa centralizada
+        embed = embed_perfil_provisorio(
+            user_name=user.display_name,
+            avatar_url=user.display_avatar.url,
+            biscoitos=dados["biscoitos"],
+            total_cartas=dados["total_cartas"],
+            dex_desbloqueada=dados["dex_desbloqueada"],
+            total_cartas_jogo=dados["total_cartas_jogo"]
         )
-        embed.set_thumbnail(url=user.display_avatar.url)
-        
-        embed.add_field(
-            name="💰 Economia", 
-            value=f"**Saldo:** {texto_biscoitos}", 
-            inline=False
-        )
-        embed.add_field(
-            name="🎴 Coleção", 
-            value=f"**Total de Cartas:** {dados['total_cartas']}\n**Progresso da Dex:** {dados['dex_desbloqueada']}/{dados['total_cartas_jogo']}", 
-            inline=False
-        )
-        
-        embed.set_footer(text="Em breve: Cartão de Perfil em Imagem estilo Poketwo! 🚀")
 
         await interaction.followup.send(embed=embed)
 
