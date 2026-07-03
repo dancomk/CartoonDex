@@ -84,10 +84,9 @@ async def spawn_personagem(canal):
         await canal.send("⚠️ Nenhuma carta encontrada no banco.")
         return False
 
-    current_spawn[canal.id] = carta
-    tentativas_erradas[canal.id] = 0
+    bot.current_spawn[canal.id] = carta
+    bot.tentativas_erradas[canal.id] = 0
 
-    # IMPORTANTE: Buscando do arquivo atualizado 'commands/embed.py' no singular!
     from commands.embed import embed_spawn
     embed = embed_spawn(
         nome=carta["nome"],
