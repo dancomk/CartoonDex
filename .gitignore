@@ -1,0 +1,17 @@
+# Arquivo de configuração local (SENHAS E TOKENS)
+.env
+
+# Arquivos do ambiente virtual do Python (se você usar)
+venv/
+.venv/
+env/
+
+# Arquivos que o Python gera automaticamente e que não precisam ir para o GitHub
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivos temporários do sistema operacional
+.DS_Store
+Thumbs.db
