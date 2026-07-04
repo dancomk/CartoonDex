@@ -142,7 +142,73 @@ class Perfil(commands.Cog):
         img_perfil.paste(img_direita, (550, 60), mascara_direita)
         img_perfil.paste(img_biscoito, (100, 406), img_biscoito)
 
-        # 5. CARREGAMENTO DAS FONTES DA RAM
+        # 5. CARREGAMENTO DAS FONTES DA RAM (Bloco try/except corrigido)
         try:
             font_topo_crewniverse = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 12)
-            font_topo_montserrat = ImageFont.truetype
+            font_topo_montserrat = ImageFont.truetype(io.BytesIO(self.cache_font_montserrat), 10)
+            font_aviso_montserrat = ImageFont.truetype(io.BytesIO(self.cache_font_montserrat), 12)
+            
+            font_crewniverse_p = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 16)
+            font_crewniverse_m = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 18)
+            font_carta_destaque = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 20)
+            font_crewniverse_g = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 28)
+            font_montserrat = ImageFont.truetype(io.BytesIO(self.cache_font_montserrat), 18)
+        except Exception:
+            font_topo_crewniverse = font_topo_montserrat = font_aviso_montserrat = font_crewniverse_p = font_crewniverse_m = font_carta_destaque = font_crewniverse_g = font_montserrat = ImageFont.load_default()
+
+        draw = ImageDraw.Draw(img_perfil)
+        
+        tracking_dados = 0
+        tracking_su = -2
+        tracking_topo = 1
+
+        # Escrita do Cabeçalho Superior Esquerdo (x=25 y=20)
+        x_topo, y_topo = 25, 20
+        texto_su = "CARTOONDEX"
+        self.draw_text_with_tracking(draw, (x_topo, y_topo), texto_su, font_topo_crewniverse, (255, 255, 255), tracking_topo, stroke_width=2, stroke_fill=cor_rgb)
+        largura_su = sum([draw.textlength(c, font=font_topo_crewniverse) + tracking_topo for c in texto_su])
+        
+        texto_resto = " - O BOT ORIGINAL DO SERVIDOR  • STEVEN UNIVERSE BR •"
+        self.draw_text_with_tracking(draw, (x_topo + largura_su + 5, y_topo - 1), texto_resto, font_topo_montserrat, (255, 255, 255), tracking_topo, stroke_width=2, stroke_fill=cor_rgb)
+
+        # Apelido do Usuário
+        self.draw_text_with_tracking(draw, (100, 295), nome_exibido, font_crewniverse_g, (255, 255, 255), tracking_su)
+
+        # TOTAL DE CARTAS
+        x_cartas, y_cartas = 100, 340
+        self.draw_text_with_tracking(draw, (x_cartas, y_cartas), "TOTAL DE CARTAS :   ", font_montserrat, (255, 255, 255), tracking_dados)
+        largura_txt1 = sum([draw.textlength(c, font=font_montserrat) + tracking_dados for c in "TOTAL DE CARTAS :   "])
+        self.draw_text_with_tracking(draw, (x_cartas + largura_txt1, y_cartas - 2), str(total_cartas), font_crewniverse_m, (255, 255, 255), tracking_dados)
+
+        # PROGRESSO DA DEX
+        y_dex = 360
+        self.draw_text_with_tracking(draw, (x_cartas, y_dex), "PROGRESSO DA DEX :   ", font_montserrat, (255, 255, 255), tracking_dados)
+        largura_txt2 = sum([draw.textlength(c, font=font_montserrat) + tracking_dados for c in "PROGRESSO DA DEX :   "])
+        self.draw_text_with_tracking(draw, (x_cartas + largura_txt2, y_dex - 2), f"{cartas_unicas}/{total_global_dex}", font_crewniverse_m, (255, 255, 255), tracking_dados)
+
+        # Saldo de Biscoitos
+        x_biscoito, y_biscoito = 160, 410
+        str_biscoitos = f"{biscoitos}  "
+        next_x = self.draw_text_with_tracking(draw, (x_biscoito, y_biscoito - 2), str_biscoitos, font_crewniverse_m, (255, 255, 255), tracking_dados)
+        
+        texto_biscoito_sufixo = "BISCOITO GATINHO" if biscoitos in (0, 1) else "BISCOITOS GATINHO"
+        self.draw_text_with_tracking(draw, (next_x, y_biscoito), texto_biscoito_sufixo, font_montserrat, (255, 255, 255), tracking_dados)
+
+        # Faixa "CARTA DESTAQUE"
+        self.draw_text_with_tracking(draw, (560, 421), "CARTA DESTAQUE", font_carta_destaque, (255, 255, 255), 0)
+
+        # Condicional do Aviso
+        if not carta_fav:
+            subtexto_aviso = "NENHUMA CARTA SELECIONADA"
+            self.draw_text_with_tracking(draw, (559, 457), subtexto_aviso, font_aviso_montserrat, (255, 255, 255), 1, stroke_width=2, stroke_fill=cor_rgb)
+
+        # 6. ENVIO DO PERFIL GERADO
+        buffer = io.BytesIO()
+        img_perfil.save(buffer, format="PNG")
+        buffer.seek(0)
+
+        file = discord.File(fp=buffer, filename="perfil.png")
+        await interaction.followup.send(file=file)
+
+async def setup(bot):
+    await bot.add_cog(Perfil(bot))
