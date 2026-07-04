@@ -97,7 +97,7 @@ class Perfil(commands.Cog):
             if carta_fav:
                 async with session.get(url_direita_recurso) as r: direita_bytes = await r.read()
 
-        if not direita_bytes:
+        if not derecha_bytes:
             direita_bytes = self.cache_padrao
 
         # 4. MONTAGEM DAS CAMADAS COM PILLOW
@@ -146,7 +146,6 @@ class Perfil(commands.Cog):
         try:
             font_topo_crewniverse = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 12)
             font_topo_montserrat = ImageFont.truetype(io.BytesIO(self.cache_font_montserrat), 10)
-            # Reajuste solicitado: Tamanho do aviso aumentado exclusivamente de 10 para 12
             font_aviso_montserrat = ImageFont.truetype(io.BytesIO(self.cache_font_montserrat), 12)
             
             font_crewniverse_p = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 16)
@@ -158,8 +157,11 @@ class Perfil(commands.Cog):
             font_topo_crewniverse = font_topo_montserrat = font_aviso_montserrat = font_crewniverse_p = font_crewniverse_m = font_carta_destaque = font_crewniverse_g = font_montserrat = ImageFont.load_default()
 
         draw = ImageDraw.Draw(img_perfil)
-        tracking_su = -2
-        tracking_topo = 1
+        
+        # Variáveis de tracking atualizadas
+        tracking_dados = 0     # Modificado para 0 conforme solicitado (Total, Dex, Biscoitos)
+        tracking_su = -2       # Mantido apenas para o Apelido ("DAN")
+        tracking_topo = 1      # Mantido para o cabeçalho superior
 
         # Escrita do Cabeçalho Superior Esquerdo (x=25 y=20)
         x_topo, y_topo = 25, 20
@@ -173,33 +175,33 @@ class Perfil(commands.Cog):
         # Apelido do Usuário
         self.draw_text_with_tracking(draw, (100, 295), nome_exibido, font_crewniverse_g, (255, 255, 255), tracking_su)
 
-        # TOTAL DE CARTAS (Reajuste solicitado: espaço extra " :   ")
+        # TOTAL DE CARTAS (tracking_dados alterado para 0)
         x_cartas, y_cartas = 100, 340
-        self.draw_text_with_tracking(draw, (x_cartas, y_cartas), "TOTAL DE CARTAS :   ", font_montserrat, (255, 255, 255), tracking_su)
-        largura_txt1 = sum([draw.textlength(c, font=font_montserrat) + tracking_su for c in "TOTAL DE CARTAS :   "])
-        self.draw_text_with_tracking(draw, (x_cartas + largura_txt1, y_cartas - 2), str(total_cartas), font_crewniverse_m, (255, 255, 255), tracking_su)
+        self.draw_text_with_tracking(draw, (x_cartas, y_cartas), "TOTAL DE CARTAS :   ", font_montserrat, (255, 255, 255), tracking_dados)
+        largura_txt1 = sum([draw.textlength(c, font=font_montserrat) + tracking_dados for c in "TOTAL DE CARTAS :   "])
+        self.draw_text_with_tracking(draw, (x_cartas + largura_txt1, y_cartas - 2), str(total_cartas), font_crewniverse_m, (255, 255, 255), tracking_dados)
 
-        # PROGRESSO DA DEX (Reajuste solicitado: espaço extra " :   ")
+        # PROGRESSO DA DEX (tracking_dados alterado para 0)
         y_dex = 360
-        self.draw_text_with_tracking(draw, (x_cartas, y_dex), "PROGRESSO DA DEX :   ", font_montserrat, (255, 255, 255), tracking_su)
-        largura_txt2 = sum([draw.textlength(c, font=font_montserrat) + tracking_su for c in "PROGRESSO DA DEX :   "])
-        self.draw_text_with_tracking(draw, (x_cartas + largura_txt2, y_dex - 2), f"{cartas_unicas}/{total_global_dex}", font_crewniverse_m, (255, 255, 255), tracking_su)
+        self.draw_text_with_tracking(draw, (x_cartas, y_dex), "PROGRESSO DA DEX :   ", font_montserrat, (255, 255, 255), tracking_dados)
+        largura_txt2 = sum([draw.textlength(c, font=font_montserrat) + tracking_dados for c in "PROGRESSO DA DEX :   "])
+        self.draw_text_with_tracking(draw, (x_cartas + largura_txt2, y_dex - 2), f"{cartas_unicas}/{total_global_dex}", font_crewniverse_m, (255, 255, 255), tracking_dados)
 
-        # Saldo de Biscoitos
+        # Saldo de Biscoitos (tracking_dados alterado para 0)
         x_biscoito, y_biscoito = 160, 410
         str_biscoitos = f"{biscoitos}  "
-        next_x = self.draw_text_with_tracking(draw, (x_biscoito, y_biscoito - 2), str_biscoitos, font_crewniverse_m, (255, 255, 255), tracking_su)
+        next_x = self.draw_text_with_tracking(draw, (x_biscoito, y_biscoito - 2), str_biscoitos, font_crewniverse_m, (255, 255, 255), tracking_dados)
         
         texto_biscoito_sufixo = "BISCOITO GATINHO" if biscoitos in (0, 1) else "BISCOITOS GATINHO"
-        self.draw_text_with_tracking(draw, (next_x, y_biscoito), texto_biscoito_sufixo, font_montserrat, (255, 255, 255), tracking_su)
+        self.draw_text_with_tracking(draw, (next_x, y_biscoito), texto_biscoito_sufixo, font_montserrat, (255, 255, 255), tracking_dados)
 
-        # Faixa "CARTA DESTAQUE" (Reajuste solicitado: +10px de descida no Y, de 407 para 417)
-        self.draw_text_with_tracking(draw, (561, 417), "CARTA DESTAQUE", font_carta_destaque, (255, 255, 255), 0)
+        # Faixa "CARTA DESTAQUE" (Ajustes: x diminui 1px [561 -> 560], y aumenta 4px [417 -> 421])
+        self.draw_text_with_tracking(draw, (560, 421), "CARTA DESTAQUE", font_carta_destaque, (255, 255, 255), 0)
 
-        # Condicional do Aviso (Reajuste solicitado: +10px de descida no Y, de 447 para 457, x=561 e tamanho 12)
+        # Condicional do Aviso (Ajuste: x diminui 2px [561 -> 559], y mantido em 457)
         if not carta_fav:
             subtexto_aviso = "NENHUMA CARTA SELECIONADA"
-            self.draw_text_with_tracking(draw, (561, 457), subtexto_aviso, font_aviso_montserrat, (255, 255, 255), 1, stroke_width=2, stroke_fill=cor_rgb)
+            self.draw_text_with_tracking(draw, (559, 457), subtexto_aviso, font_aviso_montserrat, (255, 255, 255), 1, stroke_width=2, stroke_fill=cor_rgb)
 
         # 6. ENVIO DO PERFIL GERADO
         buffer = io.BytesIO()
