@@ -130,7 +130,7 @@ class Perfil(commands.Cog):
         y_dex = 365
         self.draw_text_with_tracking(draw, (x_cartas, y_dex), "PROGRESSO DA DEX: ", font_montserrat, (255, 255, 255), tracking_su)
         largura_txt2 = sum([draw.textlength(c, font=font_montserrat) + tracking_su for c in "PROGRESSO DA DEX: "])
-        self.draw_text_with_tracking(draw, (x_cartas + largura_txt2, y_dex - 2), f"{cartas_unicas}/{total_global_dex}", font=font_crewniverse_m, (255, 255, 255), tracking_su)
+        self.draw_text_with_tracking(draw, (x_cartas + largura_txt2, y_dex - 2), f"{cartas_unicas}/{total_global_dex}", font_crewniverse_m, (255, 255, 255), tracking_su)
 
         # TEXTO 5: Saldo de Biscoitos
         x_biscoito, y_biscoito = 170, 387
