@@ -45,7 +45,7 @@ class Perfil(commands.Cog):
         nome_exibido = user_data["apelido"]
         biscoitos = user_data["biscoitos"]
         carta_fav = user_data["carta_favorita"]
-        hex_cor = user_data["cor_estrutura"] or '#2b2b5f' # Fallback para a nova cor padrão
+        hex_cor = user_data["cor_estrutura"] or '#2b2b5f'
         fundo = user_data["fundo_equipado"] or "praia-dia"
 
         # Converte a cor Hex do banco para uma tupla RGB que o Pillow aceita
@@ -53,10 +53,14 @@ class Perfil(commands.Cog):
 
         github_base = os.getenv("GITHUB_BASE")
 
-        # 2. MAPEAMENTO DAS PASTAS DO REPOSITÓRIO
+        # 2. MAPEAMENTO DOS RECURSOS REMOTOS DO REPOSITÓRIO
         url_cenario = f"{github_base}/assets/perfil/fundo/{fundo}.png"
         url_estrutura = f"{github_base}/assets/perfil/estrutura/estrutura.png"
         url_biscoito_icon = f"{github_base}/assets/icones/biscoito.png"
+        
+        # Mapeamento das fontes direto do GitHub
+        url_font_crewniverse = f"{github_base}/assets/fontes/CREWNIVERSE_FONT.TTF"
+        url_font_montserrat = f"{github_base}/assets/fontes/MONTSERRAT-SEMIBOLD.OTF"
         
         # Define qual imagem vai para a moldura da direita
         if carta_fav:
@@ -64,13 +68,16 @@ class Perfil(commands.Cog):
         else:
             url_direita_recurso = f"{github_base}/assets/perfil/nenhuma-carta-selecionada/padrao.png"
 
-        # 3. DOWNLOAD DOS RECURSOS VIA AIOHTTP
+        # 3. DOWNLOAD DOS RECURSOS VIA AIOHTTP (Imagens e Fontes)
         async with aiohttp.ClientSession() as session:
             async with session.get(url_cenario) as r: cenario_bytes = await r.read()
             async with session.get(url_estrutura) as r: estrutura_bytes = await r.read()
             async with session.get(url_biscoito_icon) as r: biscoito_bytes = await r.read()
             async with session.get(url_direita_recurso) as r: direita_bytes = await r.read()
             async with session.get(avatar_url) as r: avatar_bytes = await r.read()
+            # Baixando os arquivos de fontes do repositório
+            async with session.get(url_font_crewniverse) as r: font_crewniverse_bytes = await r.read()
+            async with session.get(url_font_montserrat) as r: font_montserrat_bytes = await r.read()
 
         # 4. TRATAMENTO E MONTAGEM DE CAMADAS (PILLOW)
         img_perfil = Image.open(io.BytesIO(cenario_bytes)).convert("RGBA").resize((900, 500))
@@ -94,12 +101,12 @@ class Perfil(commands.Cog):
         img_perfil.paste(img_direita, (605, 110), mascara_direita)
         img_perfil.paste(img_biscoito, (108, 385), img_biscoito)
 
-        # 5. CONFIGURAÇÃO DAS FONTES
+        # 5. CONFIGURAÇÃO DAS FONTES (Carregando os bytes baixados do GitHub)
         try:
-            font_crewniverse_p = ImageFont.truetype("fonts/crewniverse.ttf", 16)
-            font_crewniverse_m = ImageFont.truetype("fonts/crewniverse.ttf", 22)
-            font_crewniverse_g = ImageFont.truetype("fonts/crewniverse.ttf", 42)
-            font_montserrat = ImageFont.truetype("fonts/Montserrat-SemiBold.ttf", 20)
+            font_crewniverse_p = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 16)
+            font_crewniverse_m = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 22)
+            font_crewniverse_g = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 42)
+            font_montserrat = ImageFont.truetype(io.BytesIO(font_montserrat_bytes), 20)
         except IOError:
             font_crewniverse_p = font_crewniverse_m = font_crewniverse_g = font_montserrat = ImageFont.load_default()
 
@@ -117,7 +124,7 @@ class Perfil(commands.Cog):
         x_cartas, y_cartas = 108, 335
         self.draw_text_with_tracking(draw, (x_cartas, y_cartas), "TOTAL DE CARTAS: ", font_montserrat, (255, 255, 255), tracking_su)
         largura_txt1 = sum([draw.textlength(c, font=font_montserrat) + tracking_su for c in "TOTAL DE CARTAS: "])
-        self.draw_text_with_tracking(draw, (x_cartas + largura_txt1, y_cartas - 2), str(total_cartas), font=font_crewniverse_m, (255, 255, 255), tracking_su)
+        self.draw_text_with_tracking(draw, (x_cartas + largura_txt1, y_cartas - 2), str(total_cartas), font_crewniverse_m, (255, 255, 255), tracking_su)
 
         # TEXTO 4: PROGRESSO DA DEX
         y_dex = 365
