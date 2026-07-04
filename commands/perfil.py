@@ -11,10 +11,10 @@ class Perfil(commands.Cog):
         self.bot = bot
 
     # Função auxiliar para desenhar texto com o tracking (-50) do Photoshop traduzido para pixels
-    def draw_text_with_tracking(self, draw, position, text, font, fill, tracking):
+    def draw_text_with_tracking(self, draw, position, text, font, fill, tracking, stroke_width=0, stroke_fill=None):
         x, y = position
         for char in text:
-            draw.text((x, y), char, font=font, fill=fill)
+            draw.text((x, y), char, font=font, fill=fill, stroke_width=stroke_width, stroke_fill=stroke_fill)
             char_width = draw.textlength(char, font=font)
             x += char_width + tracking
         return x
@@ -105,43 +105,51 @@ class Perfil(commands.Cog):
         except Exception:
             return await interaction.followup.send(f"❌ Erro ao carregar a imagem da direita (carta ou padrão): `{url_direita_recurso}`.")
 
-        # CORREÇÃO 1: Criação da estrutura colorida usando máscara alfa para colorir apenas o desenho
+        # Criação da estrutura colorida usando máscara alfa para colorir apenas o desenho
         img_cor_solida = Image.new("RGBA", img_estrutura_base.size, cor_rgb)
         img_estrutura_colorida = Image.composite(img_cor_solida, Image.new("RGBA", img_estrutura_base.size, (0, 0, 0, 0)), img_estrutura_base)
         
+        # TÓPICO 2 CORRIGIDO: Raio do arredondamento alterado para 15
         mascara_avatar = Image.new("L", (200, 200), 0)
         draw_masc = ImageDraw.Draw(mascara_avatar)
-        draw_masc.rounded_rectangle([0, 0, 200, 200], radius=20, fill=255)
+        draw_masc.rounded_rectangle([0, 0, 200, 200], radius=15, fill=255)
 
         mascara_direita = Image.new("L", (260, 365), 0)
         draw_dir_masc = ImageDraw.Draw(mascara_direita)
         draw_dir_masc.rounded_rectangle([0, 0, 260, 365], radius=15, fill=255)
 
         img_perfil.paste(img_estrutura_colorida, (0, 0), img_estrutura_colorida)
-        img_perfil.paste(img_avatar, (108, 133), mascara_avatar)
+        # TÓPICO 2 CORRIGIDO: Coordenadas X e Y do avatar mudadas para (100, 75)
+        img_perfil.paste(img_avatar, (100, 75), mascara_avatar)
         img_perfil.paste(img_direita, (605, 110), mascara_direita)
         img_perfil.paste(img_biscoito, (108, 385), img_biscoito)
 
         # 5. CONFIGURAÇÃO DAS FONTES (Carregando os bytes baixados do GitHub)
         try:
+            # TÓPICO 1 CORRIGIDO: Redimensionamento das fontes do Topo
+            # Crewniverse de 22px para 13px (cerca de 3/5)
+            font_topo_crewniverse = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 13)
+            # Montserrat de 20px para 15px (exatamente 3/4)
+            font_topo_montserrat = ImageFont.truetype(io.BytesIO(font_montserrat_bytes), 15)
+            
             font_crewniverse_p = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 16)
             font_crewniverse_m = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 22)
             font_crewniverse_g = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 42)
             font_montserrat = ImageFont.truetype(io.BytesIO(font_montserrat_bytes), 20)
         except IOError:
-            font_crewniverse_p = font_crewniverse_m = font_crewniverse_g = font_montserrat = ImageFont.load_default()
+            font_topo_crewniverse = font_topo_montserrat = font_crewniverse_p = font_crewniverse_m = font_crewniverse_g = font_montserrat = ImageFont.load_default()
 
         draw = ImageDraw.Draw(img_perfil)
         tracking_su = -2 
 
-        # CORREÇÃO 2: Divisão de fontes no Header do Topo (Crewniverse + Montserrat)
+        # TÓPICO 1 CORRIGIDO: Cabeçalho com tamanho ajustado e contorno na cor do banco (cor_rgb)
         x_topo, y_topo = 30, 25
         texto_su = "CARTOONDEX"
-        self.draw_text_with_tracking(draw, (x_topo, y_topo), texto_su, font_crewniverse_m, (255, 255, 255), tracking_su)
-        largura_su = sum([draw.textlength(c, font=font_crewniverse_m) + tracking_su for c in texto_su])
+        self.draw_text_with_tracking(draw, (x_topo, y_topo), texto_su, font_topo_crewniverse, (255, 255, 255), tracking_su, stroke_width=2, stroke_fill=cor_rgb)
+        largura_su = sum([draw.textlength(c, font=font_topo_crewniverse) + tracking_su for c in texto_su])
         
         texto_resto = " - O BOT ORIGINAL DO SERVIDOR  • STEVEN UNIVERSE BR •"
-        self.draw_text_with_tracking(draw, (x_topo + largura_su + 5, y_topo + 4), texto_resto, font_montserrat, (255, 255, 255), tracking_su)
+        self.draw_text_with_tracking(draw, (x_topo + largura_su + 5, y_topo - 1), texto_resto, font_topo_montserrat, (255, 255, 255), tracking_su, stroke_width=2, stroke_fill=cor_rgb)
 
         # TEXTO 2: Apelido do Usuário
         self.draw_text_with_tracking(draw, (108, 275), nome_exibido, font_crewniverse_g, (255, 255, 255), tracking_su)
