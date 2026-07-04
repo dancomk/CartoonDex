@@ -80,18 +80,38 @@ class Perfil(commands.Cog):
             async with session.get(url_font_montserrat) as r: font_montserrat_bytes = await r.read()
 
         # 4. TRATAMENTO E MONTAGEM DE CAMADAS (PILLOW)
-        img_perfil = Image.open(io.BytesIO(cenario_bytes)).convert("RGBA").resize((900, 500))
-        img_biscoito = Image.open(io.BytesIO(biscoito_bytes)).convert("RGBA").resize((52, 28))
-        
-        img_estrutura_branca = Image.open(io.BytesIO(estrutura_bytes)).convert("L")
+        try:
+            img_perfil = Image.open(io.BytesIO(cenario_bytes)).convert("RGBA").resize((900, 500))
+        except Exception:
+            return await interaction.followup.send(f"❌ Erro ao carregar o cenário de fundo: `{url_cenario}`. Verifique se o arquivo existe no GitHub.")
+
+        try:
+            img_biscoito = Image.open(io.BytesIO(biscoito_bytes)).convert("RGBA").resize((52, 28))
+        except Exception:
+            return await interaction.followup.send(f"❌ Erro ao carregar o ícone do biscoito: `{url_biscoito_icon}`.")
+
+        try:
+            img_estrutura_branca = Image.open(io.BytesIO(estrutura_bytes)).convert("L")
+        except Exception:
+            return await interaction.followup.send(f"❌ Erro ao carregar a estrutura do perfil: `{url_estrutura}`.")
+
+        try:
+            img_avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA").resize((200, 200))
+        except Exception:
+            return await interaction.followup.send("❌ Erro ao processar o seu avatar do Discord. Tente novamente.")
+
+        try:
+            img_direita = Image.open(io.BytesIO(direita_bytes)).convert("RGBA").resize((260, 365))
+        except Exception:
+            return await interaction.followup.send(f"❌ Erro ao carregar a imagem da direita (carta ou padrão): `{url_direita_recurso}`.")
+
+        # Continuação do código de montagem...
         img_estrutura_colorida = ImageOps.colorize(img_estrutura_branca, black="black", white=cor_rgb).convert("RGBA")
         
-        img_avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA").resize((200, 200))
         mascara_avatar = Image.new("L", (200, 200), 0)
         draw_masc = ImageDraw.Draw(mascara_avatar)
         draw_masc.rounded_rectangle([0, 0, 200, 200], radius=20, fill=255)
 
-        img_direita = Image.open(io.BytesIO(direita_bytes)).convert("RGBA").resize((260, 365))
         mascara_direita = Image.new("L", (260, 365), 0)
         draw_dir_masc = ImageDraw.Draw(mascara_direita)
         draw_dir_masc.rounded_rectangle([0, 0, 260, 365], radius=15, fill=255)
