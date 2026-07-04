@@ -122,7 +122,8 @@ class Perfil(commands.Cog):
             return await interaction.followup.send("❌ Erro ao processar o seu avatar.")
 
         try:
-            img_direita = Image.open(io.BytesIO(direita_bytes)).convert("RGBA").resize((260, 365))
+            # Reajuste solicitado: Redefinido o redimensionamento da carta da direita para 250px de largura por 350px de altura
+            img_direita = Image.open(io.BytesIO(direita_bytes)).convert("RGBA").resize((250, 350))
         except Exception:
             return await interaction.followup.send("❌ Erro ao carregar a imagem da direita.")
 
@@ -133,25 +134,23 @@ class Perfil(commands.Cog):
         draw_masc = ImageDraw.Draw(mascara_avatar)
         draw_masc.rounded_rectangle([0, 0, 200, 200], radius=15, fill=255)
 
-        mascara_direita = Image.new("L", (260, 365), 0)
+        # Máscara adaptada para o novo tamanho da imagem da direita (250x350)
+        mascara_direita = Image.new("L", (250, 350), 0)
         draw_dir_masc = ImageDraw.Draw(mascara_direita)
-        draw_dir_masc.rounded_rectangle([0, 0, 260, 365], radius=15, fill=255)
+        draw_dir_masc.rounded_rectangle([0, 0, 250, 350], radius=15, fill=255)
 
         img_perfil.paste(img_estrutura_colorida, (0, 0), img_estrutura_colorida)
         img_perfil.paste(img_avatar, (100, 75), mascara_avatar)
-        # Reajuste solicitado: Posição da carta alterada para x=550 y=60
         img_perfil.paste(img_direita, (550, 60), mascara_direita)
         img_perfil.paste(img_biscoito, (100, 406), img_biscoito)
 
         # 5. CARREGAMENTO DAS FONTES DA RAM
         try:
-            # Reajuste solicitado: crewniverse diminuído de 18 para 16 (anteriormente 13)
-            font_topo_crewniverse = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 16)
-            font_topo_montserrat = ImageFont.truetype(io.BytesIO(self.cache_font_montserrat), 12)
+            font_topo_crewniverse = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 12)
+            font_topo_montserrat = ImageFont.truetype(io.BytesIO(self.cache_font_montserrat), 10)
             
             font_crewniverse_p = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 16)
             font_crewniverse_m = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 18)
-            # Reajuste solicitado: Fonte do texto "CARTA DESTAQUE" alterada para 20
             font_carta_destaque = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 20)
             font_crewniverse_g = ImageFont.truetype(io.BytesIO(self.cache_font_crewniverse), 28)
             font_montserrat = ImageFont.truetype(io.BytesIO(self.cache_font_montserrat), 18)
@@ -160,8 +159,8 @@ class Perfil(commands.Cog):
 
         draw = ImageDraw.Draw(img_perfil)
         tracking_su = -2
-        # Reajuste solicitado: tracking do topo aumentado de -1 para 0
-        tracking_topo = 0
+        # Reajuste solicitado: tracking de todo o texto do topo alterado para +1
+        tracking_topo = 1
 
         # Escrita do Cabeçalho Superior Esquerdo (x=25 y=20)
         x_topo, y_topo = 25, 20
@@ -175,33 +174,33 @@ class Perfil(commands.Cog):
         # Apelido do Usuário
         self.draw_text_with_tracking(draw, (100, 295), nome_exibido, font_crewniverse_g, (255, 255, 255), tracking_su)
 
-        # TOTAL DE CARTAS (Reajuste solicitado: espaço extra " :  ")
+        # TOTAL DE CARTAS
         x_cartas, y_cartas = 100, 340
         self.draw_text_with_tracking(draw, (x_cartas, y_cartas), "TOTAL DE CARTAS :  ", font_montserrat, (255, 255, 255), tracking_su)
         largura_txt1 = sum([draw.textlength(c, font=font_montserrat) + tracking_su for c in "TOTAL DE CARTAS :  "])
         self.draw_text_with_tracking(draw, (x_cartas + largura_txt1, y_cartas - 2), str(total_cartas), font_crewniverse_m, (255, 255, 255), tracking_su)
 
-        # PROGRESSO DA DEX (Reajuste solicitado: espaço extra " :  ")
+        # PROGRESSO DA DEX
         y_dex = 360
         self.draw_text_with_tracking(draw, (x_cartas, y_dex), "PROGRESSO DA DEX :  ", font_montserrat, (255, 255, 255), tracking_su)
         largura_txt2 = sum([draw.textlength(c, font=font_montserrat) + tracking_su for c in "PROGRESSO DA DEX :  "])
         self.draw_text_with_tracking(draw, (x_cartas + largura_txt2, y_dex - 2), f"{cartas_unicas}/{total_global_dex}", font_crewniverse_m, (255, 255, 255), tracking_su)
 
-        # Saldo de Biscoitos (Reajuste solicitado: x alterado de 150 para 170 e espaço extra no número " ")
-        x_biscoito, y_biscoito = 170, 410
+        # Saldo de Biscoitos
+        x_biscoito, y_biscoito = 160, 410
         str_biscoitos = f"{biscoitos}  "
         next_x = self.draw_text_with_tracking(draw, (x_biscoito, y_biscoito - 2), str_biscoitos, font_crewniverse_m, (255, 255, 255), tracking_su)
         
         texto_biscoito_sufixo = "BISCOITO GATINHO" if biscoitos in (0, 1) else "BISCOITOS GATINHO"
         self.draw_text_with_tracking(draw, (next_x, y_biscoito), texto_biscoito_sufixo, font_montserrat, (255, 255, 255), tracking_su)
 
-        # Faixa "CARTA DESTAQUE" (Reajuste solicitado: tamanho 20, tracking 0, em x=561 y=407)
+        # Faixa "CARTA DESTAQUE" (x=561 y=407)
         self.draw_text_with_tracking(draw, (561, 407), "CARTA DESTAQUE", font_carta_destaque, (255, 255, 255), 0)
 
-        # Condicional do Aviso (Reajuste solicitado: mesmo tamanho 12, cor branca e borda cor_rgb do texto do topo em x=569 y=447)
+        # Condicional do Aviso
         if not carta_fav:
             subtexto_aviso = "NENHUMA CARTA SELECIONADA"
-            self.draw_text_with_tracking(draw, (569, 447), subtexto_aviso, font_topo_montserrat, (255, 255, 255), 0, stroke_width=2, stroke_fill=cor_rgb)
+            self.draw_text_with_tracking(draw, (561, 447), subtexto_aviso, font_topo_montserrat, (255, 255, 255), 1, stroke_width=2, stroke_fill=cor_rgb)
 
         # 6. ENVIO DO PERFIL GERADO
         buffer = io.BytesIO()
