@@ -112,8 +112,6 @@ class Perfil(commands.Cog):
 
         draw = ImageDraw.Draw(img_perfil)
         tracking_su = -2 
-draw = ImageDraw.Draw(img_perfil)
-        tracking_su = -2 
 
         # TEXTO 1: Header do Topo
         txt_header = "CARTOONDEX - O BOT ORIGINAL DO SERVIDOR  • STEVEN UNIVERSE BR •"
