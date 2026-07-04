@@ -86,7 +86,8 @@ class Perfil(commands.Cog):
             return await interaction.followup.send(f"❌ Erro ao carregar o cenário de fundo: `{url_cenario}`. Verifique se o arquivo existe no GitHub.")
 
         try:
-            img_biscoito = Image.open(io.BytesIO(biscoito_bytes)).convert("RGBA").resize((52, 28))
+            # Redimensionamento do ícone do biscoito para 45x29 pixels conforme solicitado
+            img_biscoito = Image.open(io.BytesIO(biscoito_bytes)).convert("RGBA").resize((45, 29))
         except Exception:
             return await interaction.followup.send(f"❌ Erro ao carregar o ícone do biscoito: `{url_biscoito_icon}`.")
 
@@ -109,7 +110,6 @@ class Perfil(commands.Cog):
         img_cor_solida = Image.new("RGBA", img_estrutura_base.size, cor_rgb)
         img_estrutura_colorida = Image.composite(img_cor_solida, Image.new("RGBA", img_estrutura_base.size, (0, 0, 0, 0)), img_estrutura_base)
         
-        # TÓPICO 2 CORRIGIDO: Raio do arredondamento alterado para 15
         mascara_avatar = Image.new("L", (200, 200), 0)
         draw_masc = ImageDraw.Draw(mascara_avatar)
         draw_masc.rounded_rectangle([0, 0, 200, 200], radius=15, fill=255)
@@ -119,58 +119,63 @@ class Perfil(commands.Cog):
         draw_dir_masc.rounded_rectangle([0, 0, 260, 365], radius=15, fill=255)
 
         img_perfil.paste(img_estrutura_colorida, (0, 0), img_estrutura_colorida)
-        # TÓPICO 2 CORRIGIDO: Coordenadas X e Y do avatar mudadas para (100, 75)
         img_perfil.paste(img_avatar, (100, 75), mascara_avatar)
         img_perfil.paste(img_direita, (605, 110), mascara_direita)
-        img_perfil.paste(img_biscoito, (108, 385), img_biscoito)
+        # Reposicionamento do ícone de biscoito para x=100 y=406
+        img_perfil.paste(img_biscoito, (100, 406), img_biscoito)
 
         # 5. CONFIGURAÇÃO DAS FONTES (Carregando os bytes baixados do GitHub)
         try:
-            # TÓPICO 1 CORRIGIDO: Redimensionamento das fontes do Topo
-            # Crewniverse de 22px para 13px (cerca de 3/5)
-            font_topo_crewniverse = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 13)
-            # Montserrat de 20px para 15px (exatamente 3/4)
-            font_topo_montserrat = ImageFont.truetype(io.BytesIO(font_montserrat_bytes), 15)
+            # Fontes do topo com tamanhos corrigidos: crewniverse 10 e montserrat 12
+            font_topo_crewniverse = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 10)
+            font_topo_montserrat = ImageFont.truetype(io.BytesIO(font_montserrat_bytes), 12)
             
+            # Ajustes gerais de tamanho solicitados: Nome para 28, estáticos para 18, dinâmicos para 18
             font_crewniverse_p = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 16)
-            font_crewniverse_m = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 22)
-            font_crewniverse_g = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 42)
-            font_montserrat = ImageFont.truetype(io.BytesIO(font_montserrat_bytes), 20)
+            font_crewniverse_m = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 18)
+            font_crewniverse_g = ImageFont.truetype(io.BytesIO(font_crewniverse_bytes), 28)
+            font_montserrat = ImageFont.truetype(io.BytesIO(font_montserrat_bytes), 18)
         except IOError:
             font_topo_crewniverse = font_topo_montserrat = font_crewniverse_p = font_crewniverse_m = font_crewniverse_g = font_montserrat = ImageFont.load_default()
 
         draw = ImageDraw.Draw(img_perfil)
-        tracking_su = -2 
+        
+        # Rastreamentos distintos (tracking_topo mudado para -1)
+        tracking_su = -2
+        tracking_topo = -1
 
-        # TÓPICO 1 CORRIGIDO: Cabeçalho com tamanho ajustado e contorno na cor do banco (cor_rgb)
-        x_topo, y_topo = 30, 25
+        # Cabeçalho do topo reposicionado para x=25 y=20 com tracking -1
+        x_topo, y_topo = 25, 20
         texto_su = "CARTOONDEX"
-        self.draw_text_with_tracking(draw, (x_topo, y_topo), texto_su, font_topo_crewniverse, (255, 255, 255), tracking_su, stroke_width=2, stroke_fill=cor_rgb)
-        largura_su = sum([draw.textlength(c, font=font_topo_crewniverse) + tracking_su for c in texto_su])
+        self.draw_text_with_tracking(draw, (x_topo, y_topo), texto_su, font_topo_crewniverse, (255, 255, 255), tracking_topo, stroke_width=2, stroke_fill=cor_rgb)
+        largura_su = sum([draw.textlength(c, font=font_topo_crewniverse) + tracking_topo for c in texto_su])
         
         texto_resto = " - O BOT ORIGINAL DO SERVIDOR  • STEVEN UNIVERSE BR •"
-        self.draw_text_with_tracking(draw, (x_topo + largura_su + 5, y_topo - 1), texto_resto, font_topo_montserrat, (255, 255, 255), tracking_su, stroke_width=2, stroke_fill=cor_rgb)
+        self.draw_text_with_tracking(draw, (x_topo + largura_su + 5, y_topo - 1), texto_resto, font_topo_montserrat, (255, 255, 255), tracking_topo, stroke_width=2, stroke_fill=cor_rgb)
 
-        # TEXTO 2: Apelido do Usuário
-        self.draw_text_with_tracking(draw, (108, 275), nome_exibido, font_crewniverse_g, (255, 255, 255), tracking_su)
+        # TEXTO 2: Apelido do Usuário reposicionado para x=100 y=295 (tamanho 28)
+        self.draw_text_with_tracking(draw, (100, 295), nome_exibido, font_crewniverse_g, (255, 255, 255), tracking_su)
 
-        # TEXTO 3: TOTAL DE CARTAS
-        x_cartas, y_cartas = 108, 335
+        # TEXTO 3: TOTAL DE CARTAS reposicionado para x=100 y=340
+        x_cartas, y_cartas = 100, 340
         self.draw_text_with_tracking(draw, (x_cartas, y_cartas), "TOTAL DE CARTAS: ", font_montserrat, (255, 255, 255), tracking_su)
         largura_txt1 = sum([draw.textlength(c, font_montserrat) + tracking_su for c in "TOTAL DE CARTAS: "])
         self.draw_text_with_tracking(draw, (x_cartas + largura_txt1, y_cartas - 2), str(total_cartas), font_crewniverse_m, (255, 255, 255), tracking_su)
 
-        # TEXTO 4: PROGRESSO DA DEX
-        y_dex = 365
+        # TEXTO 4: PROGRESSO DA DEX reposicionado para x=100 y=360
+        y_dex = 360
         self.draw_text_with_tracking(draw, (x_cartas, y_dex), "PROGRESSO DA DEX: ", font_montserrat, (255, 255, 255), tracking_su)
         largura_txt2 = sum([draw.textlength(c, font_montserrat) + tracking_su for c in "PROGRESSO DA DEX: "])
         self.draw_text_with_tracking(draw, (x_cartas + largura_txt2, y_dex - 2), f"{cartas_unicas}/{total_global_dex}", font_crewniverse_m, (255, 255, 255), tracking_su)
 
-        # TEXTO 5: Saldo de Biscoitos
-        x_biscoito, y_biscoito = 170, 387
+        # TEXTO 5: Saldo de Biscoitos reposicionado para x=150 y=410
+        x_biscoito, y_biscoito = 150, 410
         str_biscoitos = f"{biscoitos} "
         next_x = self.draw_text_with_tracking(draw, (x_biscoito, y_biscoito - 2), str_biscoitos, font_crewniverse_m, (255, 255, 255), tracking_su)
-        self.draw_text_with_tracking(draw, (next_x, y_biscoito), "BISCOITOS GATINHO", font_montserrat, (255, 255, 255), tracking_su)
+        
+        # Condicional gramatical: se 0 ou 1 fica no singular, caso contrário plural
+        texto_biscoito_sufixo = "BISCOITO GATINHO" if biscoitos in (0, 1) else "BISCOITOS GATINHO"
+        self.draw_text_with_tracking(draw, (next_x, y_biscoito), texto_biscoito_sufixo, font_montserrat, (255, 255, 255), tracking_su)
 
         # TEXTO 6: Faixa "CARTA DESTAQUE"
         self.draw_text_with_tracking(draw, (625, 432), "CARTA DESTAQUE", font_crewniverse_m, (255, 255, 255), tracking_su)
