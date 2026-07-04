@@ -123,20 +123,20 @@ class Perfil(commands.Cog):
         # TEXTO 3: TOTAL DE CARTAS
         x_cartas, y_cartas = 108, 335
         self.draw_text_with_tracking(draw, (x_cartas, y_cartas), "TOTAL DE CARTAS: ", font_montserrat, (255, 255, 255), tracking_su)
-        largura_txt1 = sum([draw.textlength(c, font=font_montserrat) + tracking_su for c in "TOTAL DE CARTAS: "])
+        largura_txt1 = sum([draw.textlength(c, font_montserrat) + tracking_su for c in "TOTAL DE CARTAS: "])
         self.draw_text_with_tracking(draw, (x_cartas + largura_txt1, y_cartas - 2), str(total_cartas), font_crewniverse_m, (255, 255, 255), tracking_su)
 
         # TEXTO 4: PROGRESSO DA DEX
         y_dex = 365
         self.draw_text_with_tracking(draw, (x_cartas, y_dex), "PROGRESSO DA DEX: ", font_montserrat, (255, 255, 255), tracking_su)
-        largura_txt2 = sum([draw.textlength(c, font=font_montserrat) + tracking_su for c in "PROGRESSO DA DEX: "])
-        self.draw_text_with_tracking(draw, (x_cartas + largura_txt2, y_dex - 2), f"{cartas_unicas}/{total_global_dex}", font=font_crewniverse_m, (255, 255, 255), tracking_su)
+        largura_txt2 = sum([draw.textlength(c, font_montserrat) + tracking_su for c in "PROGRESSO DA DEX: "])
+        self.draw_text_with_tracking(draw, (x_cartas + largura_txt2, y_dex - 2), f"{cartas_unicas}/{total_global_dex}", font_crewniverse_m, (255, 255, 255), tracking_su)
 
         # TEXTO 5: Saldo de Biscoitos
         x_biscoito, y_biscoito = 170, 387
         str_biscoitos = f"{biscoitos} "
-        next_x = self.draw_text_with_tracking(draw, (x_biscoito, y_biscoito - 2), str_biscoitos, font=font_crewniverse_m, (255, 255, 255), tracking_su)
-        self.draw_text_with_tracking(draw, (next_x, y_biscoito), "BISCOITOS GATINHO", font=font_montserrat, (255, 255, 255), tracking_su)
+        next_x = self.draw_text_with_tracking(draw, (x_biscoito, y_biscoito - 2), str_biscoitos, font_crewniverse_m, (255, 255, 255), tracking_su)
+        self.draw_text_with_tracking(draw, (next_x, y_biscoito), "BISCOITOS GATINHO", font_montserrat, (255, 255, 255), tracking_su)
 
         # TEXTO 6: Faixa "CARTA DESTAQUE"
         self.draw_text_with_tracking(draw, (625, 432), "CARTA DESTAQUE", font_crewniverse_m, (255, 255, 255), tracking_su)
@@ -144,10 +144,10 @@ class Perfil(commands.Cog):
         # CONDICIONAL DO AVISO
         if not carta_fav:
             subtexto_aviso = "NENHUMA CARTA SELECIONADA"
-            largura_aviso = sum([draw.textlength(c, font=font_crewniverse_p) + tracking_su for c in subtexto_aviso])
+            largura_aviso = sum([draw.textlength(c, font_crewniverse_p) + tracking_su for c in subtexto_aviso])
             x_centro_aba = 605 + (280 / 2)
             x_aviso = x_centro_aba - (largura_aviso / 2)
-            self.draw_text_with_tracking(draw, (x_aviso, 465), subtexto_aviso, font=font_crewniverse_p, (230, 160, 255), tracking_su)
+            self.draw_text_with_tracking(draw, (x_aviso, 465), subtexto_aviso, font_crewniverse_p, (230, 160, 255), tracking_su)
 
         # 6. ENVIO DO PRODUTO FINAL
         buffer = io.BytesIO()
