@@ -2,7 +2,7 @@
 # CartoonDex - Configurações de Ignore do Git
 # ==========================================
 
-# Arquivo de configuração local com TOKENS e SENHAS (CRÍTICO)
+# Arquivo de configuração local com TOKENS e SENHAS
 .env
 
 # Pastas e arquivos gerados automaticamente pelo Python
@@ -11,7 +11,7 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Arquivos do ambiente virtual do Python (caso utilize no futuro)
+# Arquivos do ambiente virtual do Python
 venv/
 .venv/
 env/
@@ -20,5 +20,11 @@ env/
 .DS_Store
 Thumbs.db
 
-# Opcional: Descomente a linha abaixo se não quiser enviar arquivos de dados locais (.json)
+# Arquivos de dados locais (.json)
 # data/*.json
+
+# Arquivos de mídia e armazenamento local (Hospedados direto no GitHub)
+assets/
+
+# Scripts locais auxiliares
+*.bat

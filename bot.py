@@ -162,7 +162,10 @@ async def on_message(message):
     deve_monitorar = (not canais_monitorados) or (message.channel.id in canais_monitorados)
 
     if deve_monitorar:
-        contador_mensagens[message.channel.id] = contador_mensagens.get(message.channel.id, 0) + 1
+        bot.contador_mensagens[message.channel.id] = bot.contador_mensagens.get(message.channel.id, 0) + 1
+
+        if bot.contador_mensagens[message.channel.id] >= 15:
+            bot.contador_mensagens[message.channel.id] = 0
 
         if contador_mensagens[message.channel.id] >= 15:
             contador_mensagens[message.channel.id] = 0
