@@ -91,7 +91,7 @@ class Perfil(commands.Cog):
             return await interaction.followup.send(f"❌ Erro ao carregar o ícone do biscoito: `{url_biscoito_icon}`.")
 
         try:
-            img_estrutura_branca = Image.open(io.BytesIO(estrutura_bytes)).convert("L")
+            img_estrutura_base = Image.open(io.BytesIO(estrutura_bytes)).convert("RGBA")
         except Exception:
             return await interaction.followup.send(f"❌ Erro ao carregar a estrutura do perfil: `{url_estrutura}`.")
 
@@ -105,8 +105,9 @@ class Perfil(commands.Cog):
         except Exception:
             return await interaction.followup.send(f"❌ Erro ao carregar a imagem da direita (carta ou padrão): `{url_direita_recurso}`.")
 
-        # Continuação do código de montagem...
-        img_estrutura_colorida = ImageOps.colorize(img_estrutura_branca, black="black", white=cor_rgb).convert("RGBA")
+        # CORREÇÃO 1: Criação da estrutura colorida usando máscara alfa para colorir apenas o desenho
+        img_cor_solida = Image.new("RGBA", img_estrutura_base.size, cor_rgb)
+        img_estrutura_colorida = Image.composite(img_cor_solida, Image.new("RGBA", img_estrutura_base.size, (0, 0, 0, 0)), img_estrutura_base)
         
         mascara_avatar = Image.new("L", (200, 200), 0)
         draw_masc = ImageDraw.Draw(mascara_avatar)
@@ -133,9 +134,14 @@ class Perfil(commands.Cog):
         draw = ImageDraw.Draw(img_perfil)
         tracking_su = -2 
 
-        # TEXTO 1: Header do Topo
-        txt_header = "CARTOONDEX - O BOT ORIGINAL DO SERVIDOR  • STEVEN UNIVERSE BR •"
-        self.draw_text_with_tracking(draw, (25, 20), txt_header, font_crewniverse_p, (255, 255, 255, 220), tracking_su)
+        # CORREÇÃO 2: Divisão de fontes no Header do Topo (Crewniverse + Montserrat)
+        x_topo, y_topo = 30, 25
+        texto_su = "CARTOONDEX"
+        self.draw_text_with_tracking(draw, (x_topo, y_topo), texto_su, font_crewniverse_m, (255, 255, 255), tracking_su)
+        largura_su = sum([draw.textlength(c, font=font_crewniverse_m) + tracking_su for c in texto_su])
+        
+        texto_resto = " - O BOT ORIGINAL DO SERVIDOR  • STEVEN UNIVERSE BR •"
+        self.draw_text_with_tracking(draw, (x_topo + largura_su + 5, y_topo + 4), texto_resto, font_montserrat, (255, 255, 255), tracking_su)
 
         # TEXTO 2: Apelido do Usuário
         self.draw_text_with_tracking(draw, (108, 275), nome_exibido, font_crewniverse_g, (255, 255, 255), tracking_su)
@@ -164,7 +170,7 @@ class Perfil(commands.Cog):
         # CONDICIONAL DO AVISO
         if not carta_fav:
             subtexto_aviso = "NENHUMA CARTA SELECIONADA"
-            largura_aviso = sum([draw.textlength(c, font_crewniverse_p) + tracking_su for c in subtexto_aviso])
+            largura_aviso = sum([draw.textlength(c, font=font_crewniverse_p) + tracking_su for c in subtexto_aviso])
             x_centro_aba = 605 + (280 / 2)
             x_aviso = x_centro_aba - (largura_aviso / 2)
             self.draw_text_with_tracking(draw, (x_aviso, 465), subtexto_aviso, font_crewniverse_p, (230, 160, 255), tracking_su)
