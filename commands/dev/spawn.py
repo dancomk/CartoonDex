@@ -15,20 +15,25 @@ class SpawnDev(commands.Cog):
             return interaction.user.id in interaction.client.developer_ids
         return app_commands.check(predicate)
 
-    @app_commands.command(name="spawn", description="[DEV] Spawnar carta manualmente.")
+    @app_commands.command(name="spawn", description="[DEV] Força o disparo do spawn automático do bot.")
     @app_commands.guilds(discord.Object(id=guild_id_int)) if guild_id_int else app_commands.guilds()
     @apenas_desenvolvedores()
     async def spawn(self, interaction: discord.Interaction):
-        # Damos o defer de forma privada para o desenvolvedor para evitar o timeout de 3 segundos
+        # Damos o defer privado para evitar o timeout de 3 segundos no Discord
         await interaction.response.defer(ephemeral=True)
 
-        # Executa a função idêntica ao sistema automático contida no bot.py (usando o commands/embed.py global)
-        sucesso = await self.bot.spawn_personagem(interaction.channel)
+        try:
+            # Roda diretamente a função nativa e oficial que o bot.py executa após contar as mensagens
+            sucesso = await self.bot.spawn_personagem(interaction.channel)
 
-        if sucesso:
-            await interaction.followup.send("✅ Spawn enviado com sucesso!")
-        else:
-            await interaction.followup.send("❌ Falha ao executar o spawn do personagem.")
+            if sucesso:
+                await interaction.followup.send("✅ Spawn automático disparado e enviado no canal com sucesso!")
+            else:
+                await interaction.followup.send("❌ A função de spawn do bot retornou FALSO (verifique as condições no bot.py).")
+
+        except Exception as e:
+            print(f"❌ Erro ao invocar o spawn automático do bot: {e}")
+            await interaction.followup.send(f"❌ Erro crítico ao rodar o spawn do bot.py: {e}")
 
 async def setup(bot):
     await bot.add_cog(SpawnDev(bot))

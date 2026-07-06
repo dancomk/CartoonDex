@@ -70,34 +70,47 @@ class Dex(commands.Cog):
     @app_commands.command(name="dex", description="Ver a lista completa de cartas do bot.")
     async def dex(self, interaction: discord.Interaction):
         user_id = interaction.user.id
+        str_user_id = str(user_id)  # inventario_cartas usa VARCHAR(50) para membro_id
 
-        async with self.pool.acquire() as conn:
-            # ALTERAÇÃO: O JOIN agora liga diretamente as colunas dex e skin_id de ambas as tabelas
-            rows = await conn.fetch("""
-                SELECT d.dex, d.nome, d.skin_id, d.skin, COALESCE(i.quantidade, 0) AS quantidade
-                FROM dex d
-                LEFT JOIN inventario i ON i.dex = d.dex AND i.skin_id = d.skin_id AND i.user_id = $1
-                ORDER BY d.dex ASC, d.skin_id ASC;
-            """, user_id)
-
-        cartas_dict = {}
-        for row in rows:
-            box = row["dex"]
-            if box not in cartas_dict:
-                cartas_dict[box] = {"nome": row["nome"], "total_usuario": 0, "skins_capturadas": {}}
-            
-            qtd = row["quantidade"]
-            if qtd > 0:
-                cartas_dict[box]["total_usuario"] += qtd
-                cartas_dict[box]["skins_capturadas"][row["skin_id"]] = (row["skin"], qtd)
-
-        lista_completa = sorted(list(cartas_dict.keys()))
-
-        if not lista_completa:
+        # ULTRA OTIMIZAÇÃO: Usamos o cache bot.dex para obter a lista de cartas globais cadastrados
+        # e buscamos no banco apenas o inventário do membro específico.
+        if not self.bot.dex:
             await interaction.response.send_message(
                 "⚠️ Nenhuma carta cadastrada no sistema geral da Dex.", ephemeral=True
             )
             return
+
+        async with self.pool.acquire() as conn:
+            # Puxa apenas o inventário de cartas do jogador
+            rows = await conn.fetch("""
+                SELECT carta_id, SUM(quantidade) AS total
+                FROM inventario_cartas
+                WHERE membro_id = $1
+                GROUP BY carta_id;
+            """, str_user_id)
+        
+        # Mapeia as quantidades obtidas pelo usuário para cruzamento ágil
+        inventario_usuario = {row["carta_id"]: row["total"] for row in rows}
+
+        cartas_dict = {}
+        # Reconstrói a estrutura esperada utilizando os dados em memória (bot.dex) sincronizados com o banco
+        for carta_id, dados in self.bot.dex.items():
+            box = dados["numero_dex"]
+            
+            if box not in cartas_dict:
+                cartas_dict[box] = {
+                    "nome": dados["nome"],
+                    "total_usuario": 0,
+                    "skins_capturadas": {}
+                }
+            
+            qtd = inventario_usuario.get(carta_id, 0)
+            if qtd > 0:
+                cartas_dict[box]["total_usuario"] += qtd
+                # CORREÇÃO: Alterado de dados.get("skin_name") para dados.get("skin_nome")
+                cartas_dict[box]["skins_capturadas"][dados["skin_id"]] = (dados.get("skin_nome"), qtd)
+
+        lista_completa = sorted(list(cartas_dict.keys()))
 
         total_paginas = math.ceil(len(lista_completa) / ITENS_POR_PAGINA)
         view = DexView(user_id, lista_completa, cartas_dict, total_paginas, self)

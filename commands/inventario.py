@@ -71,36 +71,60 @@ class Inventario(commands.Cog):
     @app_commands.command(name="inventario", description="Ver as cartas que você já coletou.")
     async def inventario(self, interaction: discord.Interaction):
         user_id = interaction.user.id
+        str_user_id = str(user_id)  # inventario_cartas usa VARCHAR(50) para membro_id
+
+        if not self.bot.dex:
+            await interaction.response.send_message(
+                "📦 Seu inventário está vazio! Nenhuma carta cadastrada no sistema geral.", ephemeral=True
+            )
+            return
 
         async with self.pool.acquire() as conn:
-            # ALTERAÇÃO: O JOIN agora cruza as tabelas usando dex e skin_id diretamente
+            # Puxa apenas os registros que o usuário possui de fato, agrupados por carta_id
             rows = await conn.fetch("""
-                SELECT d.dex, d.nome, d.skin_id, d.skin, COALESCE(i.quantidade, 0) AS quantidade
-                FROM dex d
-                LEFT JOIN inventario i ON i.dex = d.dex AND i.skin_id = d.skin_id AND i.user_id = $1
-                ORDER BY d.dex ASC, d.skin_id ASC;
-            """, user_id)
+                SELECT carta_id, SUM(quantidade) AS total
+                FROM inventario_cartas
+                WHERE membro_id = $1
+                GROUP BY carta_id;
+            """, str_user_id)
+
+        if not rows:
+            await interaction.response.send_message(
+                "📦 Seu inventário está vazio! Você ainda não capturou nenhuma carta.", ephemeral=True
+            )
+            return
+
+        # Mapeia o inventário do usuário obtido do banco
+        inventario_usuario = {row["carta_id"]: row["total"] for row in rows}
 
         cartas_dict = {}
         total_cartas_absoluto = 0
 
-        for row in rows:
-            box = row["dex"]
-            if box not in cartas_dict:
-                cartas_dict[box] = {"nome": row["nome"], "total_usuario": 0, "skins_capturadas": {}}
-            
-            qtd = row["quantidade"]
+        # Preenche a estrutura cruzando as chaves que o usuário possui com o cache do bot
+        for carta_id, dados in self.bot.dex.items():
+            qtd = inventario_usuario.get(carta_id, 0)
             if qtd > 0:
+                box = dados["numero_dex"]
+                
+                if box not in cartas_dict:
+                    cartas_dict[box] = {
+                        "nome": dados["nome"],
+                        "total_usuario": 0,
+                        "skins_capturadas": {}
+                    }
+                
                 cartas_dict[box]["total_usuario"] += qtd
-                cartas_dict[box]["skins_capturadas"][row["skin_id"]] = (row["skin"], qtd)
+                # Modificado para usar a chave skin_nome conforme mapeamento do banco
+                cartas_dict[box]["skins_capturadas"][dados["skin_id"]] = (dados.get("skin_nome"), qtd)
                 total_cartas_absoluto += qtd
 
+        # Filtra apenas as caixas que o usuário realmente possui cópias
         lista_filtrada = [dex for dex, info in cartas_dict.items() if info["total_usuario"] > 0]
         lista_filtrada.sort()
 
         if not lista_filtrada:
             await interaction.response.send_message(
-                "📦 Seu inventário está vazio! Você ainda não capturou nenhuma carta.", ephemeral=True
+                "📦 Seu inventário está vazio! Você ainda não possui cartas válidas.", ephemeral=True
             )
             return
 
