@@ -93,7 +93,6 @@ async def obter_canal_spawn(servidor_id: int):
 
     try:
         async with bot.pool.acquire() as conn:
-            # Aponta para a nova tabela 'config_servidores'
             row = await conn.fetchrow("SELECT canal_spawn_id, canais_monitorados, cargo_adm_id FROM config_servidores WHERE servidor_id = $1", servidor_id)
             if row:
                 bot.servidor_config[servidor_id] = {
@@ -124,11 +123,18 @@ def url_moldura(moldura_id):
     return f"{GITHUB_BASE}/assets/molduras/{moldura_id}.png"
 
 
-async def spawn_personagem(canal):
+async def spawn_personagem(canal, interaction: discord.Interaction = None):
     carta = await buscar_carta_aleatoria()
 
     if not carta:
-        await canal.send("⚠️ Nenhuma carta encontrada no banco.")
+        msg_erro = "⚠️ Nenhuma carta encontrada no banco."
+        if interaction:
+            if interaction.response.is_done():
+                await interaction.followup.send(msg_erro, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg_erro, ephemeral=True)
+        else:
+            await canal.send(msg_erro)
         return False
 
     bot.current_spawn[canal.id] = carta

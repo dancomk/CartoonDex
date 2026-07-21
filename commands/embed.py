@@ -69,6 +69,10 @@ def embed_inventario(descricao_lista, pagina_atual, total_paginas, total_cartas)
     return embed
 
 
+import discord
+
+import discord
+
 def embed_dex(descricao_lista, pagina_atual, total_paginas, total_cartas):
     """Gera o embed do comando /dex com base no índice de entradas únicas."""
     x = (pagina_atual - 1) * 10 + 1
@@ -91,6 +95,81 @@ def embed_dex(descricao_lista, pagina_atual, total_paginas, total_cartas):
         color=discord.Color.from_rgb(255, 255, 255)
     )
     embed.set_footer(text="CartoonDex • Dex")
+    return embed
+
+
+def embed_info_carta(carta_nome, numero_dex, raridade, origem, colecao, hp, skins_do_personagem, skins_usuario, carta_base, url_carta_func=None):
+    """Gera a visualização geral da Dex de um personagem específico."""
+    embed = discord.Embed(
+        title=f"🃏 #{numero_dex} — {carta_nome}",
+        color=discord.Color.from_rgb(255, 255, 255)
+    )
+    
+    txt_info = (
+        f"• **Origem:** {origem}\n"
+        f"• **Coleção:** {colecao}\n"
+        f"• **Raridade:** {raridade}\n"
+        f"• **HP:** {hp} HP"
+    )
+    embed.add_field(name="📊 Informações Gerais", value=txt_info, inline=False)
+
+    txt_skins = ""
+    for sk_id, sk_nome in skins_do_personagem.items():
+        total_posse = skins_usuario.get(sk_id, 0)
+        txt_skins += f"• `ID {sk_id}` {sk_nome} — (Possui: **x{total_posse}**)\n"
+    
+    embed.add_field(name="🖼️ Skins Disponíveis", value=txt_skins, inline=False)
+
+    if carta_base.get("ataque_1_nome"):
+        embed.add_field(
+            name=f"⚔️ {carta_base['ataque_1_nome']} ({carta_base['ataque_1_dano']} Dano)",
+            value=f"*{carta_base['ataque_1_descricao'] or 'Sem descrição.'}*",
+            inline=True
+        )
+    if carta_base.get("ataque_2_nome"):
+        embed.add_field(
+            name=f"💥 {carta_base['ataque_2_nome']} ({carta_base['ataque_2_dano']} Dano)",
+            value=f"*{carta_base['ataque_2_descricao'] or 'Sem descrição.'}*",
+            inline=True
+        )
+
+    embed.set_footer(text="CartoonDex • Informações Gerais da Dex")
+    return embed
+
+
+def embed_info_instancia(instancia, id_pessoal, id_global):
+    """Gera a visualização de uma instância de carta específica exibindo o formato combinado."""
+    nome_exibicao = instancia["skin_nome"] if instancia["skin_nome"] else instancia["nome"]
+    
+    embed = discord.Embed(
+        title=f"🛡️ {nome_exibicao}",
+        description=f"Exibindo dados da carta física {id_pessoal} - #{id_global}",
+        color=discord.Color.from_rgb(46, 204, 113)
+    )
+
+    moldura_txt = f"`{instancia['moldura_id']}`" if instancia["moldura_id"] else "*Nenhuma*"
+    
+    data_global = instancia.get("data_global")
+    data_formatada = data_global.strftime("%d/%m/%Y às %H:%M") if data_global else "*Desconhecida*"
+
+    txt_status = (
+        f"• **Número da Dex:** `{instancia['numero_dex']}`\n"
+        f"• **Skin Código:** `{instancia['skin_id']}`\n"
+        f"• **Nível Atual:** Lvl {instancia['nivel']}\n"
+        f"• **Moldura Equipada:** {moldura_txt}\n"
+        f"• **Colocada em circulação em:** {data_formatada}\n"
+        f"• **Mestre Atual:** <@{instancia['membro_id']}>"
+    )
+    embed.add_field(name="📋 Status da Carta", value=txt_status, inline=False)
+
+    txt_batalha = (
+        f"• **HP:** {instancia['hp']} HP\n"
+        f"• **Ataque Principal:** {instancia['ataque_1_nome'] or '*Não possui*'}\n"
+        f"• **Ataque Secundário:** {instancia['ataque_2_nome'] or '*Não possui*'}"
+    )
+    embed.add_field(name="⚔️ Atributos Base", value=txt_batalha, inline=False)
+    
+    embed.set_footer(text="CartoonDex • Visualização de Carta Física")
     return embed
 
 def embed_perfil_provisorio(user_name, avatar_url, biscoitos, total_cartas, dex_desbloqueada, total_cartas_jogo):
