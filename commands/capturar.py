@@ -110,7 +110,7 @@ class Capturar(commands.Cog):
                     INSERT INTO perfis (membro_id, biscoitos)
                     VALUES ($1, $2)
                     ON CONFLICT (membro_id)
-                    DO UPDATE SET bioscoitos = perfis.biscoitos + $2
+                    DO UPDATE SET biscoitos = perfis.biscoitos + $2
                 """, user_id, biscoitos_ganhos)
 
         # Traduz o ID sequencial do banco para o Hash Alfanumérico de 6 dígitos

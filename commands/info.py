@@ -86,29 +86,31 @@ class InfoCarta(commands.Cog):
                 if len(termo_limpo) == 6 and not termo_limpo.isdigit():
                     serial_id = codigo_aleatorio_para_numero(termo_limpo)
                     if serial_id:
-                        instancia = await conn.fetchrow("""
+                        instancia_raw = await conn.fetchrow("""
                             WITH inventario_enumerado AS (
-                                SELECT i.id, i.numero_dex, i.skin_id, i.carta_id, i.moldura_id, i.nivel, i.membro_id, i.data_global,
+                                SELECT i.id, i.numero_dex, i.skin_id, i.carta_id, i.moldura_id, 
+                                       i.nivel, i.membro_id, i.data_global, i.data_pessoal,
                                        ROW_NUMBER() OVER(ORDER BY i.data_pessoal ASC, i.id ASC) as id_pessoal_calculado
                                 FROM inventario_cartas i
                                 WHERE i.membro_id = (SELECT membro_id FROM inventario_cartas WHERE id = $1)
                             )
-                            SELECT ie.*, d.nome, d.skin_nome, d.raridade, d.origem, d.hp, d.habilidade1, d.habilidade2
+                            SELECT ie.*, d.nome, d.skin_nome, d.raridade, d.origem, d.colecao, d.artista, d.descricao, d.hp
                             FROM inventario_enumerado ie
                             JOIN dex d ON d.carta_id = ie.carta_id
                             WHERE ie.id = $1;
                         """, serial_id)
                         
-                        if instancia:
+                        if instancia_raw:
+                            instancia = dict(instancia_raw)
                             embed = embed_info_instancia(
                                 instancia=instancia, 
                                 id_pessoal=instancia["id_pessoal_calculado"], 
-                                id_global=termo_limpo.upper()
+                                id_global=termo_limpo.upper(),
+                                usuario_solicitante_id=user_id
                             )
                             
                             file_carta = self.obter_arquivo_carta(instancia["carta_id"])
                             if file_carta:
-                                embed.set_image(url="attachment://carta.png")
                                 return await interaction.followup.send(embed=embed, file=file_carta)
                             
                             return await interaction.followup.send(embed=embed)
@@ -123,8 +125,9 @@ class InfoCarta(commands.Cog):
                     id_pessoal_alvo = int(termo_limpo)
                     
                     cartas_usuario = await conn.fetch("""
-                        SELECT i.id, i.numero_dex, i.skin_id, i.carta_id, i.moldura_id, i.nivel, i.membro_id, i.data_global,
-                               d.nome, d.skin_nome, d.raridade, d.origem, d.hp, d.habilidade1, d.habilidade2
+                        SELECT i.id, i.numero_dex, i.skin_id, i.carta_id, i.moldura_id, 
+                               i.nivel, i.membro_id, i.data_global, i.data_pessoal,
+                               d.nome, d.skin_nome, d.raridade, d.origem, d.colecao, d.artista, d.descricao, d.hp
                         FROM inventario_cartas i
                         JOIN dex d ON d.carta_id = i.carta_id
                         WHERE i.membro_id = $1
@@ -132,18 +135,18 @@ class InfoCarta(commands.Cog):
                     """, str_user_id)
                     
                     if 0 < id_pessoal_alvo <= len(cartas_usuario):
-                        instancia = cartas_usuario[id_pessoal_alvo - 1]
+                        instancia = dict(cartas_usuario[id_pessoal_alvo - 1])
                         hash_global = numero_para_codigo_aleatorio_local(instancia["id"])
                         
                         embed = embed_info_instancia(
                             instancia=instancia, 
                             id_pessoal=id_pessoal_alvo, 
-                            id_global=hash_global
+                            id_global=hash_global,
+                            usuario_solicitante_id=user_id
                         )
                         
                         file_carta = self.obter_arquivo_carta(instancia["carta_id"])
                         if file_carta:
-                            embed.set_image(url="attachment://carta.png")
                             return await interaction.followup.send(embed=embed, file=file_carta)
 
                         return await interaction.followup.send(embed=embed)
@@ -179,7 +182,7 @@ class InfoCarta(commands.Cog):
                         SELECT * FROM dex WHERE carta_id = $1;
                     """, carta_id_alvo)
 
-                    # Se pesquisou uma skin específica que não existe, tenta carregar ao menos a base (skin 0)
+                    # Se pesquisou uma skin específica que não existe, tentra caregar ao menos a base (skin 0)
                     if not rows_dex and "-" in termo:
                         rows_dex = await conn.fetch("""
                             SELECT * FROM dex WHERE numero_dex = $1 ORDER BY skin_id ASC;
@@ -200,7 +203,7 @@ class InfoCarta(commands.Cog):
                         ephemeral=True
                     )
 
-                carta_base = rows_dex[0]
+                carta_base = dict(rows_dex[0])
                 lista_numero_dex = carta_base["numero_dex"]
 
                 # Puxa todas as skins que esse personagem tem
@@ -209,7 +212,7 @@ class InfoCarta(commands.Cog):
                 """, lista_numero_dex)
 
                 skins_existentes = {
-                    row["skin_id"]: (row["skin_nome"] if row["skin_nome"] is not None else "Padrão") 
+                    row["skin_id"]: (row["skin_nome"] if row["skin_nome"] is not None else carta_base["nome"]) 
                     for row in todas_skins
                 }
 
@@ -223,30 +226,15 @@ class InfoCarta(commands.Cog):
                 
                 skins_do_usuario = {row["skin_id"]: row["qtd"] for row in rows_inv}
 
-                # Tenta chamar embed_info_carta com suporte flexível a parâmetros
-                dados_embed = {
-                    "carta_nome": carta_base["nome"],
-                    "numero_dex": carta_base["numero_dex"],
-                    "numero": carta_base["numero_dex"],
-                    "raridade": carta_base["raridade"],
-                    "origem": carta_base["origem"],
-                    "colecao": carta_base.get("colecao"),
-                    "hp": carta_base["hp"],
-                    "skins_do_personagem": skins_existentes,
-                    "skins_usuario": skins_do_usuario,
-                    "carta_base": carta_base,
-                    "url_carta_func": getattr(self.bot, "url_carta", None)
-                }
-
-                try:
-                    embed = embed_info_carta(**dados_embed)
-                except TypeError:
-                    # Caso a função embed_info_carta só aceite o dict da carta_base diretamente
-                    embed = embed_info_carta(carta_base)
+                # Chama a função embed_info_carta
+                embed = embed_info_carta(
+                    carta=carta_base,
+                    skins_do_personagem=skins_existentes,
+                    skins_usuario=skins_do_usuario
+                )
 
                 file_carta = self.obter_arquivo_carta(carta_base["carta_id"])
                 if file_carta:
-                    embed.set_image(url="attachment://carta.png")
                     await interaction.followup.send(embed=embed, file=file_carta)
                 else:
                     await interaction.followup.send(embed=embed)

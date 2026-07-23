@@ -3,8 +3,8 @@ import discord
 def embed_spawn(nome, raridade):
     """Gera o embed visual quando um personagem surge no chat sem revelar a raridade."""
     embed = discord.Embed(
-        title="✨ UM NOVO PERSONAGEM APARECEU! ✨",
-        description="Quem é esse personagem?\nUse `/capturar [nome]` para tentar capturar!",
+        title="✨ UMA NOVA CARTA APARECEU! ✨",
+        description="Que personagem pode ser? 👀\nUse `/capturar [nome]` para tentar capturar!",
         color=discord.Color.from_rgb(255, 255, 255)
     )
     return embed
@@ -14,7 +14,7 @@ def embed_sem_carta_ativa():
     """Gera o embed de aviso quando tentam capturar sem nenhuma carta ativa no canal."""
     embed = discord.Embed(
         title="⚠️ Nenhuma carta ativa",
-        description="Não há nenhum personagem disponível para captura neste canal no momento.",
+        description="Não há nenhuma carta disponível para captura neste canal no momento.",
         color=discord.Color.from_rgb(255, 255, 255)
     )
     return embed
@@ -32,7 +32,7 @@ def embed_captura_detalhada(nome, raridade, dex, quantidade, biscoitos_ganhos, s
         frase_dex = ""
 
     embed = discord.Embed(
-        title="🎉 CAPTURADO com sucesso! 🎉",
+        title="🎉 CARTA COLETADA com sucesso! 🎉",
         description=f"Você capturou **{nome}**!{frase_dex} Você ganhou **{texto_moeda}**!",
         color=discord.Color.from_rgb(255, 255, 255)
     )
@@ -57,7 +57,7 @@ def embed_inventario(descricao_lista, pagina_atual, total_paginas, total_cartas)
     corpo_embed = (
         f"{texto_paginacao}\n\n"
         f"{descricao_lista}\n\n"
-        f"Use **/info (nome/dex)** para ver informações da carta."
+        f"Use **/info** para ver informações da carta."
     )
 
     embed = discord.Embed(
@@ -86,7 +86,7 @@ def embed_dex(descricao_lista, pagina_atual, total_paginas, total_cartas):
     corpo_embed = (
         f"{texto_paginacao}\n\n"
         f"{descricao_lista}\n\n"
-        f"Use **/info (nome/dex)** para ver informações da carta."
+        f"Use **/info ** para ver informações da carta."
     )
 
     embed = discord.Embed(
@@ -97,78 +97,157 @@ def embed_dex(descricao_lista, pagina_atual, total_paginas, total_cartas):
     embed.set_footer(text="CartoonDex • Dex")
     return embed
 
+def embed_info_carta(carta: dict, skins_do_personagem: dict = None, skins_usuario: dict = None):
+    """
+    Gera o embed detalhado da carta mapeando diretamente as colunas do banco de dados Neon.
+    """
+    if skins_do_personagem is None:
+        skins_do_personagem = {}
+    if skins_usuario is None:
+        skins_usuario = {}
 
-def embed_info_carta(carta_nome, numero_dex, raridade, origem, colecao, hp, skins_do_personagem, skins_usuario, carta_base, url_carta_func=None):
-    """Gera a visualização geral da Dex de um personagem específico."""
+    # 1. Trata o nome e ID
+    nome_base = carta.get("nome", "Desconhecido")
+    skin_nome = carta.get("skin_nome")
+    skin_id = carta.get("skin_id", 0)
+
+    # Exibe apenas o nome da skin se for uma variante
+    exibir_nome = skin_nome if (skin_id != 0 and skin_nome) else nome_base
+    raw_dex = carta.get("numero_dex", "0")
+    dex_4digits = str(raw_dex).zfill(4) if isinstance(raw_dex, (int, str)) else "0000"
+    carta_id = carta.get("carta_id") or f"{dex_4digits}-{skin_id}"
+
+    # Título no estilo: `#0001-0` - Nome
     embed = discord.Embed(
-        title=f"🃏 #{numero_dex} — {carta_nome}",
+        title=f"🃏 `#{carta_id}` - {exibir_nome}",
         color=discord.Color.from_rgb(255, 255, 255)
     )
     
-    txt_info = (
-        f"• **Origem:** {origem}\n"
-        f"• **Coleção:** {colecao}\n"
-        f"• **Raridade:** {raridade}\n"
-        f"• **HP:** {hp} HP"
-    )
-    embed.add_field(name="📊 Informações Gerais", value=txt_info, inline=False)
+    # Imagem anexada via memória RAM
+    embed.set_image(url="attachment://carta.png")
 
-    txt_skins = ""
-    for sk_id, sk_nome in skins_do_personagem.items():
-        total_posse = skins_usuario.get(sk_id, 0)
-        txt_skins += f"• `ID {sk_id}` {sk_nome} — (Possui: **x{total_posse}**)\n"
+    # 2. Raridade, Origem e Coleção mapeados da tabela 'dex'
+    raridade = carta.get("raridade", "Comum")
+    origem = carta.get("origem", "Desconhecida")
+    colecao = carta.get("colecao", "Base")
     
-    embed.add_field(name="🖼️ Skins Disponíveis", value=txt_skins, inline=False)
+    embed.add_field(name="✨ Raridade", value=f"**{raridade}**", inline=True)
+    embed.add_field(name="📺 Origem", value=f"**{origem}**", inline=True)
+    embed.add_field(name="📚 Coleção", value=f"**{colecao}**", inline=True)
+    
+    # Artista (Se preenchido no banco)
+    artista = carta.get("artista")
+    if artista:
+        embed.add_field(name="🎨 Artista", value=f"**{artista}**", inline=True)
+    
+    # 3. Descrição
+    descricao = carta.get("descricao")
+    texto_descricao = descricao if (descricao and descricao.strip()) else "Não encontrada ou não adicionada."
+    embed.add_field(name="📖 Descrição", value=texto_descricao, inline=False)
+    
+    # 4. Variações de Skins com código Inline
+    if skins_do_personagem:
+        texto_skins = ""
+        for s_id, s_nome in skins_do_personagem.items():
+            cod_skin = f"`{dex_4digits}-{s_id}`"
+            
+            # Se for a skin 0 (base), exibe o nome base do personagem
+            nome_skin_exibicao = nome_base if str(s_id) == "0" or s_id == 0 else s_nome
+            if s_id in skins_usuario:
+                qtd = skins_usuario[s_id]
+                texto_skins += f"{cod_skin} - ✅ **{nome_skin_exibicao}** *(Possui: {qtd}x)*\n"
+            else:
+                texto_skins += f"{cod_skin} - 🔒 *{nome_skin_exibicao}* *(Não coletada)*\n"
+        
+        embed.add_field(name="🖼️ Variações de Skins", value=texto_skins, inline=False)
 
-    if carta_base.get("ataque_1_nome"):
-        embed.add_field(
-            name=f"⚔️ {carta_base['ataque_1_nome']} ({carta_base['ataque_1_dano']} Dano)",
-            value=f"*{carta_base['ataque_1_descricao'] or 'Sem descrição.'}*",
-            inline=True
-        )
-    if carta_base.get("ataque_2_nome"):
-        embed.add_field(
-            name=f"💥 {carta_base['ataque_2_nome']} ({carta_base['ataque_2_dano']} Dano)",
-            value=f"*{carta_base['ataque_2_descricao'] or 'Sem descrição.'}*",
-            inline=True
-        )
-
+    # 5. Rodapé
     embed.set_footer(text="CartoonDex • Informações Gerais da Dex")
     return embed
 
+def embed_info_instancia(instancia: dict, id_pessoal: int = None, id_global: str = "000000", usuario_solicitante_id: int = None):
+    """
+    Gera o embed de uma instância física de carta.
+    """
+    # 1. Trata o nome (substitui pelo nome da skin se for uma variante)
+    nome_base = instancia.get("nome", "Desconhecido")
+    skin_nome = instancia.get("skin_nome")
+    skin_id = instancia.get("skin_id", 0)
 
-def embed_info_instancia(instancia, id_pessoal, id_global):
-    """Gera a visualização de uma instância de carta específica exibindo o formato combinado."""
-    nome_exibicao = instancia["skin_nome"] if instancia["skin_nome"] else instancia["nome"]
-    
+    exibir_nome = skin_nome if (skin_id != 0 and skin_nome) else nome_base
+
+    # 2. Formata o carta_id (ex: "0001-0")
+    raw_dex = instancia.get("numero_dex", "0")
+    dex_4digits = str(raw_dex).zfill(4) if isinstance(raw_dex, (int, str)) else "0000"
+    carta_id = instancia.get("carta_id") or f"{dex_4digits}-{skin_id}"
+
+    # 3. Verifica se quem está olhando é o dono da carta
+    dono_id = instancia.get("membro_id")
+    eh_o_dono = (
+        id_pessoal is not None 
+        and usuario_solicitante_id is not None 
+        and int(dono_id) == int(usuario_solicitante_id)
+    )
+
+    # Formata a descrição dependendo de quem está olhando
+    if eh_o_dono:
+        txt_identificadores = f"Exibindo dados da carta `{id_pessoal}` - `#{id_global}`"
+    else:
+        txt_identificadores = f"Exibindo dados da carta `#{id_global}`"
+
     embed = discord.Embed(
-        title=f"🛡️ {nome_exibicao}",
-        description=f"Exibindo dados da carta física {id_pessoal} - #{id_global}",
+        title=f"🃏 `#{carta_id}` - {exibir_nome}",
+        description=txt_identificadores,
         color=discord.Color.from_rgb(46, 204, 113)
     )
 
-    moldura_txt = f"`{instancia['moldura_id']}`" if instancia["moldura_id"] else "*Nenhuma*"
+    # Imagem anexada via memória RAM
+    embed.set_image(url="attachment://carta.png")
+
+    # 4. Detalhes da carta (Raridade, Origem, Coleção, Artista e Descrição)
+    raridade = instancia.get("raridade", "Comum")
+    origem = instancia.get("origem", "Desconhecida")
+    colecao = instancia.get("colecao", "Base")
+    artista = instancia.get("artista")
     
+    descricao = instancia.get("descricao")
+    texto_descricao = descricao if (descricao and descricao.strip()) else "Não encontrada ou não adicionada."
+
+    txt_detalhes = (
+        f"✨ **Raridade:** {raridade}\n"
+        f"📺 **Origem:** {origem}\n"
+        f"📚 **Coleção:** {colecao}\n"
+    )
+    if artista:
+        txt_detalhes += f"🎨 **Artista:** {artista}\n"
+    
+    txt_detalhes += f"📖 **Descrição:** {texto_descricao}"
+
+    embed.add_field(name="", value=txt_detalhes, inline=False)
+
+    # 5. Status da Carta
+    moldura_nome = instancia.get("moldura_nome") or instancia.get("moldura_id")
+    moldura_txt = moldura_nome if moldura_nome else "Nenhuma"
+
     data_global = instancia.get("data_global")
-    data_formatada = data_global.strftime("%d/%m/%Y às %H:%M") if data_global else "*Desconhecida*"
+    data_global_fmt = data_global.strftime("%d/%m/%Y às %H:%M") if data_global else "Desconhecida"
 
     txt_status = (
-        f"• **Número da Dex:** `{instancia['numero_dex']}`\n"
-        f"• **Skin Código:** `{instancia['skin_id']}`\n"
-        f"• **Nível Atual:** Lvl {instancia['nivel']}\n"
-        f"• **Moldura Equipada:** {moldura_txt}\n"
-        f"• **Colocada em circulação em:** {data_formatada}\n"
-        f"• **Mestre Atual:** <@{instancia['membro_id']}>"
+        f"**Nível Atual:** {instancia.get('nivel', 1)}\n"
+        f"**Moldura Equipada:** {moldura_txt}\n"
+        f"**Colocada em circulação em:** {data_global_fmt}\n"
     )
-    embed.add_field(name="📋 Status da Carta", value=txt_status, inline=False)
 
-    txt_batalha = (
-        f"• **HP:** {instancia['hp']} HP\n"
-        f"• **Ataque Principal:** {instancia['ataque_1_nome'] or '*Não possui*'}\n"
-        f"• **Ataque Secundário:** {instancia['ataque_2_nome'] or '*Não possui*'}"
-    )
-    embed.add_field(name="⚔️ Atributos Base", value=txt_batalha, inline=False)
-    
+    # Inclui "No inventário desde:" APENAS se for o dono da carta
+    if eh_o_dono:
+        data_pessoal = instancia.get("data_pessoal")
+        data_pessoal_fmt = data_pessoal.strftime("%d/%m/%Y às %H:%M") if data_pessoal else "Desconhecida"
+        txt_status += f"**No inventário desde:** {data_pessoal_fmt}\n"
+
+    txt_status += f"**Mestre Atual:** <@{dono_id}>"
+
+    embed.add_field(name="### 📋 Status da Carta", value=txt_status, inline=False)
+
     embed.set_footer(text="CartoonDex • Visualização de Carta Física")
     return embed
 
