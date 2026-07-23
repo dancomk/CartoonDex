@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 # Importações do sistema do bot
 from systems.database import conectar
-from systems.gerar_carta import (
+from systems.gerar_cartas import (
     carregar_e_gerar_todas_as_cartas, 
     obter_bytes_carta, 
     obter_bytes_carta_spawn
