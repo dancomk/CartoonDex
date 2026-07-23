@@ -12,10 +12,8 @@ CARTAS_CACHE = {}
 # =============================================================================
 # CONFIGURAÇÃO DE BANCO E GITHUB
 # =============================================================================
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://neondb_owner:npg_L1GeKJy3SZWx@ep-wild-sea-actyw8rs-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-)
+# Lê a credencial exclusivamente do ambiente (.env ou painel da hospedagem)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # URL Base para baixar as imagens das cartas direto do repositório
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/dancomk/CartoonDex/main/assets/cartas"
@@ -26,7 +24,6 @@ PASTA_FONTES = os.path.join(PASTA_RAIZ, "assets", "fontes")
 
 FONTE_CREWNIVERSE = os.path.join(PASTA_FONTES, "crewniverse_font.ttf")
 FONTE_MONTSERRAT = os.path.join(PASTA_FONTES, "Montserrat-SemiBold.otf")
-
 
 # =============================================================================
 # FUNÇÕES DE DESENHO E FORMATADORAS
