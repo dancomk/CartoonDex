@@ -20,11 +20,8 @@ env/
 .DS_Store
 Thumbs.db
 
-# Arquivos de dados locais (.json)
-# data/*.json
-
-# Arquivos de mídia e armazenamento local (Hospedados direto no GitHub)
-assets/
+# Arquivos de mídia e armazenamento local
+particular/
 
 # Scripts locais auxiliares
 *.bat

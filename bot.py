@@ -8,7 +8,10 @@ import logging
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
+
+# Importações do sistema do bot
 from systems.database import conectar
+from systems.gerar_cartas import carregar_e_gerar_todas_as_cartas, obter_bytes_carta
 
 # ====================================================================
 # CONFIGURAÇÃO DE LOGS ESTRUTURADOS
@@ -166,9 +169,17 @@ async def on_ready():
     bot.url_moldura = url_moldura
     bot.limpar_dex = limpar_dex
     bot.obter_canal_spawn = obter_canal_spawn
+    
+    # Injeta a função de buscar o buffer da memória RAM nas propriedades do bot
+    bot.obter_bytes_carta = obter_bytes_carta
 
+    # Caches do banco de dados
     await carregar_dex_cache()
     await carregar_lojas_cache()
+    
+    # Carrega e renderiza todas as cartas na RAM sem travar o loop de eventos
+    logger.info("🎨 Iniciando geração de cartas na memória RAM...")
+    await asyncio.to_thread(carregar_e_gerar_todas_as_cartas)
     
     # --- CARREGAMENTO DINÂMICO DE COGS ---
     caminho_commands = os.path.join(os.path.dirname(__file__), "commands")
