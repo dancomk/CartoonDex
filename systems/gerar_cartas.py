@@ -12,7 +12,6 @@ CARTAS_CACHE = {}
 # =============================================================================
 # CONFIGURAÇÃO DE BANCO E GITHUB
 # =============================================================================
-# Lê a credencial exclusivamente do ambiente (.env ou painel da hospedagem)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # URL Base para baixar as imagens das cartas direto do repositório
@@ -21,9 +20,8 @@ GITHUB_RAW_URL = "https://raw.githubusercontent.com/dancomk/CartoonDex/main/asse
 # Caminho relativo para carregar as fontes que acompanham o bot no projeto
 PASTA_RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASTA_FONTES = os.path.join(PASTA_RAIZ, "assets", "fontes")
-
-FONTE_CREWNIVERSE = os.path.join(PASTA_FONTES, "crewniverse_font.ttf")
-FONTE_MONTSERRAT = os.path.join(PASTA_FONTES, "Montserrat-SemiBold.otf")
+FONTE_CREWNIVERSE = os.path.join(PASTA_FONTES, "CREWNIVERSE_FONT.TTF")
+FONTE_MONTSERRAT = os.path.join(PASTA_FONTES, "MONTSERRAT-SEMIBOLD.OTF")
 
 # =============================================================================
 # FUNÇÕES DE DESENHO E FORMATADORAS
@@ -127,8 +125,11 @@ def baixar_imagem_github(carta_id):
 # =============================================================================
 # RENDERIZADOR INDIVIDUAL DE CARTA
 # =============================================================================
-def renderizar_carta(dados_carta, carta_id):
-    """Baixa a arte base do GitHub e aplica os dados do banco sobre ela."""
+def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
+    """
+    Baixa a arte base do GitHub e aplica os dados do banco sobre ela.
+    Se eh_spawn=True, o nome da carta é substituído por '?????' para adivinhação.
+    """
     img = baixar_imagem_github(carta_id)
     if not img:
         return None
@@ -151,8 +152,12 @@ def renderizar_carta(dados_carta, carta_id):
     fonte_estrela_custo = ImageFont.truetype(FONTE_CREWNIVERSE, 24)
     fonte_num_custo = ImageFont.truetype(FONTE_CREWNIVERSE, 21)
 
-    # NOME DA CARTA / SKIN
-    nome_exibir = dados_carta.get("skin_nome") or dados_carta.get("nome")
+    # NOME DA CARTA / SKIN (Substituído por '?????' em caso de spawn)
+    if eh_spawn:
+        nome_exibir = "?????"
+    else:
+        nome_exibir = dados_carta.get("skin_nome") or dados_carta.get("nome")
+
     if nome_exibir:
         tamanho_fonte = 28
         fonte_nome = ImageFont.truetype(FONTE_CREWNIVERSE, tamanho_fonte)
@@ -305,7 +310,7 @@ def carregar_e_gerar_todas_as_cartas():
                 continue
 
             print(f"  ├─ Baixando base e gerando '{carta_id}' via GitHub...")
-            imagem_gerada = renderizar_carta(dados, carta_id)
+            imagem_gerada = renderizar_carta(dados, carta_id, eh_spawn=False)
 
             if imagem_gerada:
                 CARTAS_CACHE[carta_id] = imagem_gerada
@@ -331,3 +336,19 @@ def obter_bytes_carta(carta_id):
     
     nome_arquivo = f"{carta_id}.png"
     return buffer, nome_arquivo
+
+
+def obter_bytes_carta_spawn(dados_carta, carta_id):
+    """
+    Gera dinamicamente uma versão da carta com o nome '?????' para ser usada no spawn.
+    Retorna (buffer_io, "spawn.png").
+    """
+    imagem_spawn = renderizar_carta(dados_carta, carta_id, eh_spawn=True)
+    if not imagem_spawn:
+        return None, None
+
+    buffer = io.BytesIO()
+    imagem_spawn.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return buffer, "spawn.png"

@@ -72,18 +72,17 @@ class Dex(commands.Cog):
         user_id = interaction.user.id
         str_user_id = str(user_id)  # inventario_cartas usa VARCHAR(50) para membro_id
 
-        # ULTRA OTIMIZAÇÃO: Usamos o cache bot.dex para obter a lista de cartas globais cadastrados
-        # e buscamos no banco apenas o inventário do membro específico.
-        if not self.bot.dex:
+        # Verifica se o cache global da Dex está carregado
+        if not hasattr(self.bot, "dex") or not self.bot.dex:
             await interaction.response.send_message(
                 "⚠️ Nenhuma carta cadastrada no sistema geral da Dex.", ephemeral=True
             )
             return
 
         async with self.pool.acquire() as conn:
-            # Puxa apenas o inventário de cartas do jogador
+            # CORREÇÃO: Usamos COUNT(*) pois cada carta capturada é um registro único na tabela
             rows = await conn.fetch("""
-                SELECT carta_id, SUM(quantidade) AS total
+                SELECT carta_id, COUNT(*) AS total
                 FROM inventario_cartas
                 WHERE membro_id = $1
                 GROUP BY carta_id;
@@ -93,7 +92,7 @@ class Dex(commands.Cog):
         inventario_usuario = {row["carta_id"]: row["total"] for row in rows}
 
         cartas_dict = {}
-        # Reconstrói a estrutura esperada utilizando os dados em memória (bot.dex) sincronizados com o banco
+        # Reconstrói a estrutura esperada utilizando os dados em memória (bot.dex)
         for carta_id, dados in self.bot.dex.items():
             box = dados["numero_dex"]
             
@@ -107,10 +106,15 @@ class Dex(commands.Cog):
             qtd = inventario_usuario.get(carta_id, 0)
             if qtd > 0:
                 cartas_dict[box]["total_usuario"] += qtd
-                # CORREÇÃO: Alterado de dados.get("skin_name") para dados.get("skin_nome")
                 cartas_dict[box]["skins_capturadas"][dados["skin_id"]] = (dados.get("skin_nome"), qtd)
 
         lista_completa = sorted(list(cartas_dict.keys()))
+
+        if not lista_completa:
+            await interaction.response.send_message(
+                "⚠️ Nenhuma carta encontrada na Dex.", ephemeral=True
+            )
+            return
 
         total_paginas = math.ceil(len(lista_completa) / ITENS_POR_PAGINA)
         view = DexView(user_id, lista_completa, cartas_dict, total_paginas, self)

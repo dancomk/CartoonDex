@@ -223,19 +223,27 @@ class InfoCarta(commands.Cog):
                 
                 skins_do_usuario = {row["skin_id"]: row["qtd"] for row in rows_inv}
 
-                embed = embed_info_carta(
-                    carta_nome=carta_base["nome"],
-                    numero_dex=carta_base["numero_dex"],
-                    raridade=carta_base["raridade"],
-                    origem=carta_base["origem"],
-                    colecao=carta_base["colecao"],
-                    hp=carta_base["hp"],
-                    skins_do_personagem=skins_existentes,
-                    skins_usuario=skins_do_usuario,
-                    carta_base=carta_base,
-                    url_carta_func=getattr(self.bot, "url_carta", None)
-                )
-                
+                # Tenta chamar embed_info_carta com suporte flexível a parâmetros
+                dados_embed = {
+                    "carta_nome": carta_base["nome"],
+                    "numero_dex": carta_base["numero_dex"],
+                    "numero": carta_base["numero_dex"],
+                    "raridade": carta_base["raridade"],
+                    "origem": carta_base["origem"],
+                    "colecao": carta_base.get("colecao"),
+                    "hp": carta_base["hp"],
+                    "skins_do_personagem": skins_existentes,
+                    "skins_usuario": skins_do_usuario,
+                    "carta_base": carta_base,
+                    "url_carta_func": getattr(self.bot, "url_carta", None)
+                }
+
+                try:
+                    embed = embed_info_carta(**dados_embed)
+                except TypeError:
+                    # Caso a função embed_info_carta só aceite o dict da carta_base diretamente
+                    embed = embed_info_carta(carta_base)
+
                 file_carta = self.obter_arquivo_carta(carta_base["carta_id"])
                 if file_carta:
                     embed.set_image(url="attachment://carta.png")

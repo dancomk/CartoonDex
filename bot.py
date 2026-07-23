@@ -11,7 +11,11 @@ from dotenv import load_dotenv
 
 # Importações do sistema do bot
 from systems.database import conectar
-from systems.gerar_cartas import carregar_e_gerar_todas_as_cartas, obter_bytes_carta
+from systems.gerar_carta import (
+    carregar_e_gerar_todas_as_cartas, 
+    obter_bytes_carta, 
+    obter_bytes_carta_spawn
+)
 
 # ====================================================================
 # CONFIGURAÇÃO DE LOGS ESTRUTURADOS
@@ -64,21 +68,22 @@ async def carregar_dex_cache():
     try:
         async with bot.pool.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT dex, nome, skin, skin_id, raridade, dica, aliases
+                SELECT carta_id, numero_dex, nome, skin_nome, skin_id, raridade, aliases, origem, hp, full_art, artista, habilidade1, habilidade2
                 FROM dex
-                ORDER BY dex ASC, skin_id ASC
+                ORDER BY numero_dex ASC, skin_id ASC
             """)
-            bot.dex = [dict(r) for r in rows]
+            # Mapeia as linhas recuperadas do Neon para o cache global do bot
+            bot.dex = {r["carta_id"]: dict(r) for r in rows}
         logger.info(f"✅ Dex carregada em cache: {len(bot.dex)} cartas.")
     except Exception as e:
         logger.error(f"❌ Erro ao carregar cache da Dex no banco Neon: {e}")
-        bot.dex = []
+        bot.dex = {}
 
 
 async def carregar_lojas_cache():
     try:
         async with bot.pool.acquire() as conn:
-            molduras_rows = await conn.fetch("SELECT moldura_id, nome, preco, raridade FROM loja_molduras WHERE disponivel = TRUE")
+            molduras_rows = await conn.fetch("SELECT moldura_id, nome, preco, raridade FROM loja_molduras")
             bot.loja_molduras = {r["moldura_id"]: dict(r) for r in molduras_rows}
             
             itens_rows = await conn.fetch("SELECT item_nome, nome, preco, descricao FROM loja_itens")
@@ -113,11 +118,14 @@ async def buscar_carta_aleatoria():
     if not bot.dex:
         logger.warning("Tentativa de buscar carta aleatória, mas o cache da Dex está vazio!")
         return None
-    return random.choice(bot.dex)
+    
+    # Seleciona aleatoriamente um valor da lista de dicionários da Dex
+    chave_sorteada = random.choice(list(bot.dex.keys()))
+    return bot.dex[chave_sorteada]
 
 
 def url_carta(carta):
-    dex = limpar_dex(carta["dex"])
+    dex = limpar_dex(carta.get("numero_dex", "0000"))
     skin = carta.get("skin_id", 0)
     return f"{GITHUB_BASE}/assets/cartas/{dex}/{dex}-{skin}-carta.png"
 
@@ -130,7 +138,7 @@ async def spawn_personagem(canal, interaction: discord.Interaction = None):
     carta = await buscar_carta_aleatoria()
 
     if not carta:
-        msg_erro = "⚠️ Nenhuma carta encontrada no banco."
+        msg_erro = "⚠️ Nenhuma carta encontrada no banco de dados."
         if interaction:
             if interaction.response.is_done():
                 await interaction.followup.send(msg_erro, ephemeral=True)
@@ -140,17 +148,30 @@ async def spawn_personagem(canal, interaction: discord.Interaction = None):
             await canal.send(msg_erro)
         return False
 
+    carta_id = carta.get("carta_id") or f"{limpar_dex(carta.get('numero_dex', '0000'))}-{carta.get('skin_id', 0)}"
+
     bot.current_spawn[canal.id] = carta
     bot.tentativas_erradas[canal.id] = 0
 
     from commands.embed import embed_spawn
-    embed = embed_spawn(
-        nome=carta["nome"],
-        raridade=carta["raridade"]
-    )
+    
+    # Renderiza a carta dinamicamente substituindo o nome por '?????' (eh_spawn=True)
+    buffer_spawn, filename = await asyncio.to_thread(obter_bytes_carta_spawn, carta, carta_id)
 
-    embed.set_image(url=url_carta(carta))
-    await canal.send(embed=embed)
+    if not buffer_spawn:
+        logger.error(f"❌ Não foi possível gerar os bytes da carta para o spawn ({carta_id}).")
+        return False
+
+    file = discord.File(fp=buffer_spawn, filename=filename)
+
+    # Cria o Embed omitindo o nome real do personagem
+    embed = embed_spawn(
+        nome="?????",
+        raridade=carta.get("raridade", "Desconhecida")
+    )
+    embed.set_image(url=f"attachment://{filename}")
+
+    await canal.send(embed=embed, file=file)
     return True
 
 
@@ -170,8 +191,9 @@ async def on_ready():
     bot.limpar_dex = limpar_dex
     bot.obter_canal_spawn = obter_canal_spawn
     
-    # Injeta a função de buscar o buffer da memória RAM nas propriedades do bot
+    # Injeta as funções de ler buffers da memória RAM nas propriedades do bot
     bot.obter_bytes_carta = obter_bytes_carta
+    bot.obter_bytes_carta_spawn = obter_bytes_carta_spawn
 
     # Caches do banco de dados
     await carregar_dex_cache()

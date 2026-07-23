@@ -60,7 +60,7 @@ class Perfil(commands.Cog):
 
     def draw_text_with_tracking(self, draw, position, text, font, fill, tracking, stroke_width=0, stroke_fill=None):
         x, y = position
-        for char in text:
+        for char in str(text):
             draw.text((x, y), char, font=font, fill=fill, stroke_width=stroke_width, stroke_fill=stroke_fill)
             char_width = draw.textlength(char, font=font)
             x += char_width + tracking
@@ -112,4 +112,35 @@ class Perfil(commands.Cog):
 
         self.draw_text_with_tracking(draw, (100, 295), nome_exibido, self.font_crewniverse_g, (255, 255, 255), tracking_su)
 
-        x_cartas
+        # Renderização dos textos de métricas e estatísticas
+        self.draw_text_with_tracking(draw, (100, 360), f"CARTAS: {total_cartas}", self.font_crewniverse_m, (255, 255, 255), tracking_dados)
+        self.draw_text_with_tracking(draw, (100, 385), f"DEX: {cartas_unicas}/{total_global_dex}", self.font_crewniverse_m, (255, 255, 255), tracking_dados)
+        self.draw_text_with_tracking(draw, (135, 410), f"{biscoitos}", self.font_crewniverse_m, (255, 255, 255), tracking_dados)
+
+        buffer = io.BytesIO()
+        img_perfil.save(buffer, format="PNG")
+        buffer.seek(0)
+        return buffer
+
+    @app_commands.command(name="perfil", description="Exibe o seu perfil do CartoonDex")
+    async def perfil(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+     
+        avatar_bytes = await interaction.user.display_avatar.read()
+        
+        buffer = await asyncio.to_thread(
+            self._renderizar_imagem_perfil,
+            self.cache_fundo_praia,
+            avatar_bytes,
+            self.cache_padrao,
+            None,
+            (88, 101, 242, 255),
+            interaction.user.display_name.upper(),
+            0, 0, 0, 0, None
+        )
+        
+        file = discord.File(buffer, filename="perfil.png")
+        await interaction.followup.send(file=file)
+
+async def setup(bot):
+    await bot.add_cog(Perfil(bot))

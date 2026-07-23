@@ -121,10 +121,10 @@ def embed_inventario_itens(linhas_itens):
     texto_paginacao = f"Exibindo itens {x}–{y} de {total_itens}."
 
     lista_texto = ""
-    if not lines_itens := linhas_itens:
+    if not linhas_itens:
         lista_texto = "*Seu inventário de itens está vazio.*\n"
     else:
-        for i in lines_itens:
+        for i in linhas_itens:
             lista_texto += f"• **{i['item_id']}** — Quantidade: x{i['quantidade']}\n"
 
     corpo_embed = (
