@@ -1,10 +1,12 @@
+import math
+import string
+from enum import Enum
+from typing import Optional
+
+import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
-import math
-import asyncpg
-import string
-from enum import Enum
 
 from .embed_inventario import (
     embed_inventario_cartas,
@@ -18,6 +20,7 @@ ITENS_POR_PAGINA = 10
 ALFABETO = string.digits + string.ascii_uppercase
 PRIMO = 41359727
 MODULO = 36**6
+
 
 def numero_para_codigo_aleatorio(num: int) -> str:
     """Embaralha o ID SERIAL único do banco em um hash de 6 dígitos."""
@@ -35,6 +38,7 @@ class TipoInventario(Enum):
     cartas = "cartas"
     molduras = "molduras"
     itens = "itens"
+
 
 class OrdenacaoCartas(Enum):
     recentes = "recentes"
@@ -65,7 +69,6 @@ class InventarioView(discord.ui.View):
         elif self.categoria == TipoInventario.molduras.value:
             self.btn_inverter.disabled = True
             self.btn_inverter.style = discord.ButtonStyle.gray
-            # Atualiza o rótulo inicial baseado no filtro de entrada
             if self.ordenacao == "raridade":
                 self.btn_filtro_molduras.label = "✨ Raridade"
             elif self.ordenacao == "alfabetica":
@@ -107,6 +110,8 @@ class InventarioView(discord.ui.View):
             )
         elif self.categoria == TipoInventario.molduras.value:
             embed = embed_inventario_molduras(fatia, self.pagina_atual, self.total_paginas, self.extra_info, self.ordenacao)
+        else:
+            embed = embed_inventario_itens(fatia, self.pagina_atual, self.total_paginas, self.extra_info)
 
         await interaction.response.edit_message(embed=embed, view=self)
 
@@ -140,69 +145,59 @@ class InventarioView(discord.ui.View):
         self.pagina_atual = self.total_paginas
         await self.atualizar_embed(interaction)
 
-    @discord.ui.button(label="↕️", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="🔄 Inverter", style=discord.ButtonStyle.gray)
     async def btn_inverter(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Alterna a direção de busca das cartas recentes (DESC <-> ASC)."""
+        if self.categoria != TipoInventario.cartas.value or self.ordenacao != OrdenacaoCartas.recentes.value:
+            return
+
         self.direcao_recentes = "ASC" if self.direcao_recentes == "DESC" else "DESC"
-        
-        async with self.cog.pool.acquire() as conn:
-            if self.direcao_recentes == "DESC":
-                self.dados_gerais = await conn.fetch("""
-                    SELECT id, numero_dex, skin_id, moldura_id, nivel 
-                    FROM inventario_cartas WHERE membro_id = $1 ORDER BY data_pessoal DESC, id DESC;
-                """, self.str_user_id)
-            else:
-                self.dados_gerais = await conn.fetch("""
-                    SELECT id, numero_dex, skin_id, moldura_id, nivel 
-                    FROM inventario_cartas WHERE membro_id = $1 ORDER BY data_pessoal ASC, id ASC;
-                """, self.str_user_id)
-        
+        self.dados_gerais.reverse()
         self.pagina_atual = 1
         await self.atualizar_embed(interaction)
 
-    @discord.ui.button(label="⏱️ Recentes", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="⏱️ Recentes", style=discord.ButtonStyle.gray)
     async def btn_filtro_molduras(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Alterna ciclicamente entre: recentes -> raridade -> alfabetica."""
-        async with self.cog.pool.acquire() as conn:
-            if self.ordenacao == "recentes":
-                self.ordenacao = "raridade"
-                button.label = "✨ Raridade"
-                self.dados_gerais = await conn.fetch("""
-                    SELECT im.moldura_id, im.quantidade, im.data_pessoal, lm.nome, lm.raridade
-                    FROM inventario_molduras im
-                    JOIN loja_molduras lm ON im.moldura_id = lm.moldura_id
-                    WHERE im.membro_id = $1
-                    ORDER BY 
-                        CASE LOWER(lm.raridade)
-                            WHEN 'lendaria' THEN 1
-                            WHEN 'epica'    THEN 2
-                            WHEN 'rara'     THEN 3
-                            WHEN 'comum'    THEN 4
-                            ELSE 5
-                        END ASC,
-                        lm.nome ASC;
-                """, self.str_user_id)
-            elif self.ordenacao == "raridade":
-                self.ordenacao = "alfabetica"
-                button.label = "🔤 Nome (A-Z)"
-                self.dados_gerais = await conn.fetch("""
-                    SELECT im.moldura_id, im.quantidade, im.data_pessoal, lm.nome, lm.raridade
-                    FROM inventario_molduras im
-                    JOIN loja_molduras lm ON im.moldura_id = lm.moldura_id
-                    WHERE im.membro_id = $1
-                    ORDER BY lm.nome ASC;
-                """, self.str_user_id)
-            else:
-                self.ordenacao = "recentes"
-                button.label = "⏱️ Recentes"
-                self.dados_gerais = await conn.fetch("""
-                    SELECT im.moldura_id, im.quantidade, im.data_pessoal, lm.nome, lm.raridade
-                    FROM inventario_molduras im
-                    JOIN loja_molduras lm ON im.moldura_id = lm.moldura_id
-                    WHERE im.membro_id = $1
-                    ORDER BY im.data_pessoal DESC;
-                """, self.str_user_id)
+        if self.categoria != TipoInventario.molduras.value:
+            return
 
+        if self.ordenacao == "recentes":
+            self.ordenacao = "raridade"
+            button.label = "✨ Raridade"
+        elif self.ordenacao == "raridade":
+            self.ordenacao = "alfabetica"
+            button.label = "🔤 Nome (A-Z)"
+        else:
+            self.ordenacao = "recentes"
+            button.label = "⏱️ Recentes"
+
+        async with self.cog.pool.acquire() as conn:
+            if self.ordenacao == "raridade":
+                query = """
+                    SELECT im.*, m.nome, m.raridade 
+                    FROM inventario_molduras im
+                    JOIN molduras m ON im.moldura_id = m.id
+                    WHERE im.membro_id = $1
+                    ORDER BY m.raridade_ordem DESC, im.adquirido_em DESC;
+                """
+            elif self.ordenacao == "alfabetica":
+                query = """
+                    SELECT im.*, m.nome, m.raridade 
+                    FROM inventario_molduras im
+                    JOIN molduras m ON im.moldura_id = m.id
+                    WHERE im.membro_id = $1
+                    ORDER BY m.nome ASC;
+                """
+            else:
+                query = """
+                    SELECT im.*, m.nome, m.raridade 
+                    FROM inventario_molduras im
+                    JOIN molduras m ON im.moldura_id = m.id
+                    WHERE im.membro_id = $1
+                    ORDER BY im.adquirido_em DESC;
+                """
+            rows = await conn.fetch(query, self.str_user_id)
+
+        self.dados_gerais = [dict(r) for r in rows]
         self.pagina_atual = 1
         await self.atualizar_embed(interaction)
 
@@ -212,129 +207,100 @@ class Inventario(commands.Cog):
         self.bot = bot
         self.pool: asyncpg.Pool = bot.pool
 
-    @app_commands.command(name="inventario", description="Exibe as tuas cartas, molduras ou itens adquiridos!")
+    @app_commands.command(name="inventario", description="Acesse seu inventário de cartas, molduras ou itens.")
     @app_commands.describe(
-        categoria="Escolhe qual a categoria do teu inventário desejas visualizar.",
-        organizar="Como deseja ordenar suas cartas (Apenas se escolher a categoria Cartas)."
+        categoria="O que você deseja visualizar?",
+        ordenar="Como deseja ordenar (apenas para cartas)?"
     )
-    @app_commands.choices(
-        categoria=[
-            app_commands.Choice(name="🃏 Cartas", value=TipoInventario.cartas.value),
-            app_commands.Choice(name="🖼️ Molduras", value=TipoInventario.molduras.value),
-            app_commands.Choice(name="🎒 Itens", value=TipoInventario.itens.value)
-        ],
-        organizar=[
-            app_commands.Choice(name="⏱️ Recentes (Carta Única)", value=OrdenacaoCartas.recentes.value),
-            app_commands.Choice(name="🔢 Número da Dex (Agrupado)", value=OrdenacaoCartas.dex.value)
-        ]
-    )
-    async def inventario(self, interaction: discord.Interaction, categoria: str, organizar: str = "recentes"):
-        await interaction.response.defer(ephemeral=False)
-        
+    async def inventario(
+        self, 
+        interaction: discord.Interaction, 
+        categoria: TipoInventario, 
+        ordenar: Optional[OrdenacaoCartas] = None
+    ):
+        await interaction.response.defer()
         user_id = interaction.user.id
         str_user_id = str(user_id)
 
-        if categoria == TipoInventario.cartas.value:
-            await self._processar_cartas(interaction, str_user_id, user_id, organizar)
-        elif categoria == TipoInventario.molduras.value:
-            await self._processar_molduras(interaction, str_user_id, user_id)
-        elif categoria == TipoInventario.itens.value:
-            await self._processar_itens(interaction, str_user_id, user_id)
+        ordem_selecionada = ordenar.value if ordenar else OrdenacaoCartas.recentes.value
 
-    async def _processar_cartas(self, interaction: discord.Interaction, str_user_id: str, user_id: int, ordenar: str):
         async with self.pool.acquire() as conn:
-            if ordenar == OrdenacaoCartas.recentes.value:
-                rows = await conn.fetch("""
-                    SELECT id, numero_dex, skin_id, moldura_id, nivel 
-                    FROM inventario_cartas WHERE membro_id = $1 ORDER BY data_pessoal DESC, id DESC;
-                """, str_user_id)
-                
-                if not rows:
-                    return await interaction.followup.send("📦 O teu inventário de cartas está vazio!", ephemeral=True)
-                
-                total_cartas_absoluto = len(rows)
-                total_paginas = math.ceil(total_cartas_absoluto / ITENS_POR_PAGINA)
-                
-            else:
-                rows = await conn.fetch("""
-                    SELECT numero_dex, skin_id, moldura_id, nivel, COUNT(*) as quantidade, SUM(COUNT(*)) OVER() as total_absoluto
-                    FROM inventario_cartas WHERE membro_id = $1
-                    GROUP BY numero_dex, skin_id, moldura_id, nivel ORDER BY numero_dex ASC;
-                """, str_user_id)
-                
-                if not rows:
-                    return await interaction.followup.send("📦 O teu inventário de cartas está vazio!", ephemeral=True)
-                
-                total_cartas_absoluto = rows[0]["total_absoluto"]
-                total_paginas = math.ceil(len(rows) / ITENS_POR_PAGINA)
+            if categoria == TipoInventario.cartas:
+                if ordem_selecionada == OrdenacaoCartas.dex.value:
+                    query = """
+                        SELECT i.*, d.nome, d.skin_nome 
+                        FROM inventario_cartas i
+                        JOIN dex d ON i.carta_id = d.carta_id
+                        WHERE i.membro_id = $1
+                        ORDER BY i.numero_dex ASC, i.skin_id ASC, i.data_pessoal ASC;
+                    """
+                else:
+                    query = """
+                        SELECT i.*, d.nome, d.skin_nome 
+                        FROM inventario_cartas i
+                        JOIN dex d ON i.carta_id = d.carta_id
+                        WHERE i.membro_id = $1
+                        ORDER BY i.data_pessoal DESC, i.id DESC;
+                    """
+                rows = await conn.fetch(query, str_user_id)
 
+            elif categoria == TipoInventario.molduras:
+                query = """
+                    SELECT im.*, m.nome, m.raridade 
+                    FROM inventario_molduras im
+                    JOIN molduras m ON im.moldura_id = m.id
+                    WHERE im.membro_id = $1
+                    ORDER BY im.adquirido_em DESC;
+                """
+                rows = await conn.fetch(query, str_user_id)
+
+            else:
+                query = """
+                    SELECT * FROM inventario_itens
+                    WHERE membro_id = $1;
+                """
+                rows = await conn.fetch(query, str_user_id)
+
+        dados = [dict(r) for r in rows]
+        total_itens = len(dados)
+
+        if total_itens == 0:
+            return await interaction.followup.send(
+                f"📦 Seu inventário de **{categoria.value}** está vazio.",
+                ephemeral=True
+            )
+
+        total_paginas = math.ceil(total_itens / ITENS_POR_PAGINA)
         view = InventarioView(
             author_id=user_id, 
-            categoria=TipoInventario.cartas.value, 
-            dados_gerais=rows, 
+            categoria=categoria.value, 
+            dados_gerais=dados, 
             total_paginas=total_paginas, 
             cog=self, 
-            extra_info=total_cartas_absoluto,
-            ordenacao=ordenar,
+            extra_info=total_itens, 
+            ordenacao=ordem_selecionada if categoria == TipoInventario.cartas else "recentes",
             str_user_id=str_user_id
         )
-        
-        fatia_inicial = rows[0:ITENS_POR_PAGINA]
-        embed = embed_inventario_cartas(
-            fatia_cartas=fatia_inicial, 
-            pagina_atual=1, 
-            total_paginas=total_paginas, 
-            total_cartas=total_cartas_absoluto, 
-            ordenacao=ordenar,
-            inicio_fria=1, 
-            direcao="DESC",
-            bot=self.bot
-        )
+
+        fatia = dados[0:ITENS_POR_PAGINA]
+
+        if categoria == TipoInventario.cartas:
+            embed = embed_inventario_cartas(
+                fatia_cartas=fatia, 
+                pagina_atual=1, 
+                total_paginas=total_paginas, 
+                total_cartas=total_itens, 
+                ordenacao=ordem_selecionada,
+                inicio_fria=1,
+                direcao="DESC",
+                bot=self.bot
+            )
+        elif categoria == TipoInventario.molduras:
+            embed = embed_inventario_molduras(fatia, 1, total_paginas, total_itens, "recentes")
+        else:
+            embed = embed_inventario_itens(fatia, 1, total_paginas, total_itens)
+
         await interaction.followup.send(embed=embed, view=view)
-
-    async def _processar_molduras(self, interaction: discord.Interaction, str_user_id: str, user_id: int):
-        async with self.pool.acquire() as conn:
-            # Padrão Inicial: Ordem de Compra (Mais recentes primeiro através de data_pessoal)
-            rows = await conn.fetch("""
-                SELECT im.moldura_id, im.quantidade, im.data_pessoal, lm.nome, lm.raridade
-                FROM inventario_molduras im
-                JOIN loja_molduras lm ON im.moldura_id = lm.moldura_id
-                WHERE im.membro_id = $1 
-                ORDER BY im.data_pessoal DESC;
-            """, str_user_id)
-
-        if not rows:
-            return await interaction.followup.send("📦 Não possuis nenhuma moldura cosmética.", ephemeral=True)
-
-        total_molduras = len(rows)
-        total_paginas = math.ceil(total_molduras / ITENS_POR_PAGINA)
-        
-        view = InventarioView(
-            author_id=user_id,
-            categoria=TipoInventario.molduras.value,
-            dados_gerais=rows,
-            total_paginas=total_paginas,
-            cog=self,
-            extra_info=total_molduras,
-            ordenacao="recentes",
-            str_user_id=str_user_id
-        )
-        
-        fatia_inicial = rows[0:ITENS_POR_PAGINA]
-        embed = embed_inventario_molduras(fatia_inicial, 1, total_paginas, total_molduras, "recentes")
-        await interaction.followup.send(embed=embed, view=view)
-
-    async def _processar_itens(self, interaction: discord.Interaction, str_user_id: str, user_id: int):
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch("""
-                SELECT item_id, quantidade FROM inventario_itens WHERE membro_id = $1 ORDER BY item_id ASC
-            """, str_user_id)
-
-        if not rows:
-            return await interaction.followup.send("📦 O teu inventário de itens está vazio.", ephemeral=True)
-
-        embed = embed_inventario_itens(rows)
-        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot):

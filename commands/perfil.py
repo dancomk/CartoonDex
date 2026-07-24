@@ -4,11 +4,15 @@ import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
+import asyncpg
 from PIL import Image, ImageDraw, ImageFont
+
 
 class Perfil(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.pool: asyncpg.Pool = bot.pool
+
         # Cache de arquivos brutos na RAM
         self.cache_estrutura = None
         self.cache_biscoito = None
@@ -25,7 +29,7 @@ class Perfil(commands.Cog):
         self.font_montserrat = None
 
     async def cog_load(self):
-        github_base = os.getenv("GITHUB_BASE")
+        github_base = os.getenv("GITHUB_BASE", "https://raw.githubusercontent.com/seu-usuario/seu-repo/main")
         url_estrutura = f"{github_base}/assets/perfil/estrutura/estrutura.png"
         url_biscoito_icon = f"{github_base}/assets/icones/biscoito.png"
         url_padrao = f"{github_base}/assets/perfil/nenhuma-carta-selecionada/padrao.png"
@@ -125,22 +129,88 @@ class Perfil(commands.Cog):
     @app_commands.command(name="perfil", description="Exibe o seu perfil do CartoonDex")
     async def perfil(self, interaction: discord.Interaction):
         await interaction.response.defer()
-     
+        
+        user_id = interaction.user.id
+        str_user_id = str(user_id)
+
+        # Consultas de dados do utilizador
+        async with self.pool.acquire() as conn:
+            # 1. Dados do perfil (biscoitos e ID da carta favorita)
+            perfil_row = await conn.fetchrow("""
+                SELECT biscoitos, carta_favorita FROM perfis WHERE membro_id = $1
+            """, str_user_id)
+            
+            biscoitos = perfil_row["biscoitos"] if perfil_row else 0
+            carta_fav_instancia_id = perfil_row["carta_favorita"] if perfil_row else None
+
+            # 2. Total de cartas do jogador
+            total_cartas = await conn.fetchval("""
+                SELECT COUNT(*) FROM inventario_cartas WHERE membro_id = $1
+            """, str_user_id) or 0
+
+            # 3. Cartas únicas desbloqueadas na Dex
+            cartas_unicas = await conn.fetchval("""
+                SELECT COUNT(DISTINCT numero_dex) FROM inventario_cartas WHERE membro_id = $1
+            """, str_user_id) or 0
+
+            # 4. Total de cartas cadastradas no sistema Dex
+            total_global_dex = len(self.bot.dex) if hasattr(self.bot, "dex") and self.bot.dex else 100
+
+            # 5. Informações da Carta Favorita (se houver)
+            direita_bytes = self.cache_padrao
+            moldura_bytes = None
+            
+            if carta_fav_instancia_id:
+                carta_fav = await conn.fetchrow("""
+                    SELECT numero_dex, skin_id, moldura_id 
+                    FROM inventario_cartas 
+                    WHERE id = $1 AND membro_id = $2
+                """, carta_fav_instancia_id, str_user_id)
+
+                if carta_fav:
+                    session = self.bot.aiohttp_session
+                    # Baixa a imagem da carta
+                    url_carta = self.bot.gerar_url_carta({
+                        "numero_dex": carta_fav["numero_dex"],
+                        "skin_id": carta_fav["skin_id"]
+                    })
+                    try:
+                        async with session.get(url_carta) as r:
+                            if r.status == 200:
+                                direita_bytes = await r.read()
+                    except Exception:
+                        direita_bytes = self.cache_padrao
+
+                    # Baixa a moldura se equipada
+                    if carta_fav["moldura_id"]:
+                        url_moldura = f"{os.getenv('GITHUB_BASE')}/molduras/{carta_fav['moldura_id']}.png"
+                        try:
+                            async with session.get(url_moldura) as r:
+                                if r.status == 200:
+                                    moldura_bytes = await r.read()
+                        except Exception:
+                            moldura_bytes = None
+
         avatar_bytes = await interaction.user.display_avatar.read()
         
         buffer = await asyncio.to_thread(
             self._renderizar_imagem_perfil,
             self.cache_fundo_praia,
             avatar_bytes,
-            self.cache_padrao,
-            None,
+            direita_bytes,
+            moldura_bytes,
             (88, 101, 242, 255),
             interaction.user.display_name.upper(),
-            0, 0, 0, 0, None
+            total_cartas,
+            cartas_unicas,
+            total_global_dex,
+            biscoitos,
+            carta_fav_instancia_id
         )
         
         file = discord.File(buffer, filename="perfil.png")
         await interaction.followup.send(file=file)
+
 
 async def setup(bot):
     await bot.add_cog(Perfil(bot))

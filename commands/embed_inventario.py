@@ -1,11 +1,8 @@
 import discord
-
-import discord
+from systems.utils import numero_para_codigo_aleatorio
 
 def embed_inventario_cartas(fatia_cartas, pagina_atual, total_paginas, total_cartas, ordenacao, inicio_fria, direcao, bot):
     """Gera o embed adaptando os índices decrescentes ou crescentes no modo Recentes."""
-    from inventario import numero_para_codigo_aleatorio
-
     lista_texto = ""
 
     if ordenacao == "recentes":
@@ -71,6 +68,7 @@ def embed_inventario_cartas(fatia_cartas, pagina_atual, total_paginas, total_car
     embed.set_footer(text=f"CartoonDex • Ordenado por {ordenacao.upper()} ({direcao})")
     return embed
 
+
 def embed_inventario_molduras(linhas_molduras, pagina_atual, total_paginas, total_molduras, filtro_atual):
     """Gera o embed do comando /inventario molduras exibindo dados e o tipo de filtro ativo."""
     x = (pagina_atual - 1) * 10 + 1
@@ -93,7 +91,6 @@ def embed_inventario_molduras(linhas_molduras, pagina_atual, total_paginas, tota
         lista_texto = "*Você não possui nenhuma moldura.*\n"
     else:
         for m in linhas_molduras:
-            # Mostra o nome limpo extraído da tabela loja_molduras e a raridade correspondente
             lista_texto += f"• **{m['nome']}** (`{m['moldura_id']}`) — [{m['raridade']}] x{m['quantidade']}\n"
 
     corpo_embed = (
@@ -110,11 +107,11 @@ def embed_inventario_molduras(linhas_molduras, pagina_atual, total_paginas, tota
     embed.set_footer(text="CartoonDex • Inventário de Molduras")
     return embed
 
+
 def embed_inventario_itens(linhas_itens):
-    """Gera o embed do comando /inventario itens em página única seguindo o modelo original."""
+    """Gera o embed do comando /inventario itens em página única."""
     total_itens = len(linhas_itens)
     
-    # Como itens ficam em página única, exibe de 1 até o total acumulado diretamente
     x = 1 if total_itens > 0 else 0
     y = total_itens
 

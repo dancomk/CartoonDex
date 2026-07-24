@@ -1,15 +1,18 @@
 import discord
 
-def embed_sucesso_monitoramento(canal_mention: str, adicionado: bool):
+
+def embed_sucesso_monitoramento(canal_mention: str, adicionado: bool) -> str:
     """Gera uma resposta com a ação em negrito para a lista de monitoramento."""
     acao = "**adicionado à**" if adicionado else "**removido da**"
     return f"✅ Canal {canal_mention} foi {acao} lista de monitoramento."
 
-def embed_sucesso_spawn(canal_mention: str):
+
+def embed_sucesso_spawn(canal_mention: str) -> str:
     """Gera uma resposta com 'Canal de spawn' em negrito para a alteração de spawn principal."""
     return f"✅ **Canal de spawn** configurado com sucesso para: {canal_mention}"
 
-def embed_config_info(canal_spawn_id: int, lista_monitoramento_ids: list):
+
+def embed_config_info(canal_spawn_id: int, lista_monitoramento_ids: list) -> discord.Embed:
     """Gera o layout visual das configurações atuais do servidor."""
     embed = discord.Embed(
         title="⚙️ Configurações Atuais do CartoonDex",

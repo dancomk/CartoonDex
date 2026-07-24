@@ -1,17 +1,21 @@
+import string
+from typing import Optional
+
+import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
-import asyncpg
-import string
-from typing import Optional
+
 from .embed import embed_info_carta, embed_info_instancia
 
 # --- SISTEMA DE TRADUÇÃO DO ID GLOBAL HASH ---
 ALFABETO = string.digits + string.ascii_uppercase
+PRIMO = 41359727
 PRIMO_INVERSO = 1438994323  # Inverso modular de 41359727 sob o módulo 36^6
 MODULO = 36**6
 
-def codigo_aleatorio_para_numero(codigo: str) -> int:
+
+def codigo_aleatorio_para_numero(codigo: str) -> Optional[int]:
     """Decodifica o hash de 6 dígitos de volta para o ID SERIAL numérico do banco."""
     if len(codigo) != 6:
         return None
@@ -24,11 +28,12 @@ def codigo_aleatorio_para_numero(codigo: str) -> int:
     except ValueError:
         return None
 
+
 def numero_para_codigo_aleatorio_local(num: int) -> str:
     """Embaralha o ID SERIAL único do banco em um hash de 6 dígitos."""
-    PRIMO = 41359727
-    if not num: return "000000"
-    embaralhado = (num * PRIMO) % (36**6)
+    if not num:
+        return "000000"
+    embaralhado = (num * PRIMO) % MODULO
     codigo = ""
     for _ in range(6):
         embaralhado, resto = divmod(embaralhado, 36)
@@ -64,8 +69,7 @@ class InfoCarta(commands.Cog):
         carta: Optional[str] = None
     ):
         await interaction.response.defer()
-        
-        # Garante que o usuário enviou pelo menos um parâmetro
+
         if not dex and not carta:
             return await interaction.followup.send(
                 "⚠️ Por favor, escolha e preencha uma das opções: `/info dex:` ou `/info carta:`.",
@@ -90,16 +94,15 @@ class InfoCarta(commands.Cog):
                             WITH inventario_enumerado AS (
                                 SELECT i.id, i.numero_dex, i.skin_id, i.carta_id, i.moldura_id, 
                                        i.nivel, i.membro_id, i.data_global, i.data_pessoal,
-                                       ROW_NUMBER() OVER(ORDER BY i.data_pessoal ASC, i.id ASC) as id_pessoal_calculado
+                                       ROW_NUMBER() OVER(PARTITION BY i.membro_id ORDER BY i.data_pessoal ASC, i.id ASC) as id_pessoal_calculado
                                 FROM inventario_cartas i
-                                WHERE i.membro_id = (SELECT membro_id FROM inventario_cartas WHERE id = $1)
                             )
                             SELECT ie.*, d.nome, d.skin_nome, d.raridade, d.origem, d.colecao, d.artista, d.descricao, d.hp
                             FROM inventario_enumerado ie
                             JOIN dex d ON d.carta_id = ie.carta_id
                             WHERE ie.id = $1;
                         """, serial_id)
-                        
+
                         if instancia_raw:
                             instancia = dict(instancia_raw)
                             embed = embed_info_instancia(
@@ -108,11 +111,11 @@ class InfoCarta(commands.Cog):
                                 id_global=termo_limpo.upper(),
                                 usuario_solicitante_id=user_id
                             )
-                            
+
                             file_carta = self.obter_arquivo_carta(instancia["carta_id"])
                             if file_carta:
                                 return await interaction.followup.send(embed=embed, file=file_carta)
-                            
+
                             return await interaction.followup.send(embed=embed)
 
                     return await interaction.followup.send(
@@ -123,7 +126,7 @@ class InfoCarta(commands.Cog):
                 # --- 1B: ID PESSOAL (Apenas números) ---
                 elif termo_limpo.isdigit():
                     id_pessoal_alvo = int(termo_limpo)
-                    
+
                     cartas_usuario = await conn.fetch("""
                         SELECT i.id, i.numero_dex, i.skin_id, i.carta_id, i.moldura_id, 
                                i.nivel, i.membro_id, i.data_global, i.data_pessoal,
@@ -133,24 +136,24 @@ class InfoCarta(commands.Cog):
                         WHERE i.membro_id = $1
                         ORDER BY i.data_pessoal ASC, i.id ASC;
                     """, str_user_id)
-                    
+
                     if 0 < id_pessoal_alvo <= len(cartas_usuario):
                         instancia = dict(cartas_usuario[id_pessoal_alvo - 1])
                         hash_global = numero_para_codigo_aleatorio_local(instancia["id"])
-                        
+
                         embed = embed_info_instancia(
                             instancia=instancia, 
                             id_pessoal=id_pessoal_alvo, 
                             id_global=hash_global,
                             usuario_solicitante_id=user_id
                         )
-                        
+
                         file_carta = self.obter_arquivo_carta(instancia["carta_id"])
                         if file_carta:
                             return await interaction.followup.send(embed=embed, file=file_carta)
 
                         return await interaction.followup.send(embed=embed)
-                    
+
                     return await interaction.followup.send(
                         f"❌ Você não possui uma carta no nº **{id_pessoal_alvo}** do seu inventário.",
                         ephemeral=True
@@ -166,8 +169,7 @@ class InfoCarta(commands.Cog):
             # =================================================================
             elif dex:
                 termo = dex.strip()
-                
-                # Checa se é número / formato de código da Dex (ex: "1", "0001", "1-1", "0001-1")
+
                 if any(char.isdigit() for char in termo) and not any(char.isalpha() for char in termo):
                     if "-" in termo:
                         partes = termo.split("-", 1)
@@ -182,13 +184,11 @@ class InfoCarta(commands.Cog):
                         SELECT * FROM dex WHERE carta_id = $1;
                     """, carta_id_alvo)
 
-                    # Se pesquisou uma skin específica que não existe, tentra caregar ao menos a base (skin 0)
                     if not rows_dex and "-" in termo:
                         rows_dex = await conn.fetch("""
                             SELECT * FROM dex WHERE numero_dex = $1 ORDER BY skin_id ASC;
                         """, num_dex)
                 else:
-                    # Busca por Nome do Personagem, Nome da Skin ou Aliases
                     rows_dex = await conn.fetch("""
                         SELECT * FROM dex 
                         WHERE LOWER(nome) = LOWER($1) 
@@ -206,7 +206,6 @@ class InfoCarta(commands.Cog):
                 carta_base = dict(rows_dex[0])
                 lista_numero_dex = carta_base["numero_dex"]
 
-                # Puxa todas as skins que esse personagem tem
                 todas_skins = await conn.fetch("""
                     SELECT skin_id, skin_nome FROM dex WHERE numero_dex = $1 ORDER BY skin_id ASC;
                 """, lista_numero_dex)
@@ -216,17 +215,15 @@ class InfoCarta(commands.Cog):
                     for row in todas_skins
                 }
 
-                # Conta quantas cartas de cada skin o usuário tem
                 rows_inv = await conn.fetch("""
                     SELECT skin_id, COUNT(*) as qtd
                     FROM inventario_cartas
                     WHERE membro_id = $1 AND numero_dex = $2
                     GROUP BY skin_id;
                 """, str_user_id, lista_numero_dex)
-                
+
                 skins_do_usuario = {row["skin_id"]: row["qtd"] for row in rows_inv}
 
-                # Chama a função embed_info_carta
                 embed = embed_info_carta(
                     carta=carta_base,
                     skins_do_personagem=skins_existentes,

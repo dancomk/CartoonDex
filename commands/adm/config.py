@@ -3,9 +3,10 @@ from discord import app_commands
 from discord.ext import commands
 import asyncpg
 import logging
-from .embed_adm import embed_sucesso_monitoramento, embed_sucesso_spawn, embed_config_info
+from adm.embed_adm import embed_sucesso_monitoramento, embed_sucesso_spawn, embed_config_info
 
 logger = logging.getLogger("CartoonDex.ConfigAdmin")
+
 
 class ConfigAdmin(commands.Cog):
     def __init__(self, bot):
@@ -26,9 +27,7 @@ class ConfigAdmin(commands.Cog):
 
             if cargo_adm_id:
                 # Checa se o usuário possui o cargo na lista de cargos dele
-                tem_cargo = any(role.id == cargo_adm_id for role in interaction.user.roles)
-                if tem_cargo:
-                    return True
+                return any(role.id == cargo_adm_id for role in interaction.user.roles)
 
             return False
         return app_commands.check(predicate)
@@ -73,7 +72,7 @@ class ConfigAdmin(commands.Cog):
                 self.bot.servidor_config[servidor_id]["cargo_adm_id"] = cargo_id
 
             if cargo:
-                await interaction.followup.send(f"✅ Sucesso! Membros com o cargo {cargo.mention} agora também podem configure o bot.", ephemeral=True)
+                await interaction.followup.send(f"✅ Sucesso! Membros com o cargo {cargo.mention} agora também podem configurar o bot.", ephemeral=True)
             else:
                 await interaction.followup.send("✅ Configuração resetada! Apenas administradores nativos do servidor podem configurar o bot agora.", ephemeral=True)
 
@@ -159,6 +158,7 @@ class ConfigAdmin(commands.Cog):
         except Exception as e:
             logger.error(f"Erro no /config_info: {e}")
             await interaction.followup.send("⚠️ Erro ao carregar as informações de configuração.", ephemeral=True)
+
 
 async def setup(bot):
     await bot.add_cog(ConfigAdmin(bot))

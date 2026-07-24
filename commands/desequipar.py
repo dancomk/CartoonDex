@@ -24,7 +24,6 @@ class Desequipar(commands.Cog):
 
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                # Busca a linha exata que combina o jogador, a carta E a moldura digitada
                 carta_usuario = await conn.fetchrow("""
                     SELECT carta_id, moldura_id, skin_id 
                     FROM inventario_cartas 
@@ -38,18 +37,14 @@ class Desequipar(commands.Cog):
                         ephemeral=True
                     )
 
-                # AÇÃO A: Remove a moldura daquela linha específica (Seta para NULL ou agrupa de volta se necessário)
-                # Nota: Para evitar duplicados de linhas puras, o ideal no seu sistema de inventário é:
-                # Se já existir uma linha com moldura_id IS NULL para essa mesma skin, você soma quantidade +1 nela e deleta/subtrai desta.
-                
-                # Vamos fazer o update direto na linha exata identificada
+                # Remove a moldura
                 await conn.execute("""
                     UPDATE inventario_cartas 
                     SET moldura_id = NULL 
                     WHERE membro_id = $1 AND carta_id = $2 AND moldura_id = $3
                 """, str_user_id, carta_id, moldura_id)
 
-                # AÇÃO B: Devolve o item para o inventário de molduras consumíveis
+                # Devolve o item ao estoque
                 await conn.execute("""
                     INSERT INTO inventario_molduras (membro_id, moldura_id, quantidade)
                     VALUES ($1, $2, 1)
@@ -66,7 +61,7 @@ class Desequipar(commands.Cog):
             color=discord.Color.from_rgb(255, 255, 255)
         )
         
-        if dados_carta_global and hasattr(self.bot, "generar_url_carta"):
+        if dados_carta_global and hasattr(self.bot, "gerar_url_carta"):
             dados_para_url = {
                 "carta_id": carta_id,
                 "skin_id": carta_usuario["skin_id"],
@@ -77,6 +72,7 @@ class Desequipar(commands.Cog):
 
         embed.set_footer(text="CartoonDex • Cosméticos")
         await interaction.followup.send(embed=embed)
+
 
 async def setup(bot):
     await bot.add_cog(Desequipar(bot))

@@ -2,37 +2,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import asyncpg
-import string
 from typing import Optional
 
-# --- SISTEMA DE TRADUÇÃO DO ID GLOBAL HASH ---
-ALFABETO = string.digits + string.ascii_uppercase
-PRIMO_INVERSO = 1438994323  # Inverso modular de 41359727 sob o módulo 36^6
-MODULO = 36**6
-
-def codigo_aleatorio_para_numero(codigo: str) -> int:
-    """Decodifica o hash de 6 dígitos de volta para o ID SERIAL numérico do banco."""
-    if len(codigo) != 6:
-        return None
-    try:
-        embaralhado = 0
-        for char in codigo.upper():
-            embaralhado = embaralhado * 36 + ALFABETO.index(char)
-        num = (embaralhado * PRIMO_INVERSO) % MODULO
-        return num
-    except ValueError:
-        return None
-
-def numero_para_codigo_aleatorio_local(num: int) -> str:
-    """Embaralha o ID SERIAL único do banco em um hash de 6 dígitos."""
-    PRIMO = 41359727
-    if not num: return "000000"
-    embaralhado = (num * PRIMO) % (36**6)
-    codigo = ""
-    for _ in range(6):
-        embaralhado, resto = divmod(embaralhado, 36)
-        codigo = ALFABETO[resto] + codigo
-    return codigo
+from systems.utils import codigo_aleatorio_para_numero, numero_para_codigo_aleatorio
 
 
 class FavoritarCarta(commands.Cog):
@@ -93,7 +65,6 @@ class FavoritarCarta(commands.Cog):
             if len(termo_limpo) == 6 and not termo_limpo.isdigit():
                 serial_id = codigo_aleatorio_para_numero(termo_limpo)
                 if serial_id:
-                    # Restringe obrigatoriamente a busca ao inventário de quem enviou o comando
                     instancia_alvo = await conn.fetchrow("""
                         WITH inventario_enumerado AS (
                             SELECT i.id, i.numero_dex, i.skin_id, i.carta_id, i.membro_id,
@@ -135,7 +106,7 @@ class FavoritarCarta(commands.Cog):
                 if 0 < id_pessoal_alvo <= len(cartas_usuario):
                     instancia_alvo = cartas_usuario[id_pessoal_alvo - 1]
                     id_pessoal_exibicao = id_pessoal_alvo
-                    id_global_exibicao = numero_para_codigo_aleatorio_local(instancia_alvo["id"])
+                    id_global_exibicao = numero_para_codigo_aleatorio(instancia_alvo["id"])
                 else:
                     return await interaction.followup.send(
                         f"❌ Você não possui nenhuma carta na posição **#{id_pessoal_alvo}** do seu inventário.",
@@ -149,7 +120,7 @@ class FavoritarCarta(commands.Cog):
                 )
 
             # =================================================================
-            # SALVANDO NO PERFIL DO USUÁRIO (Tabela: perfis, Coluna: carta_favorita)
+            # SALVANDO NO PERFIL DO USUÁRIO
             # =================================================================
             await conn.execute("""
                 INSERT INTO perfis (membro_id, carta_favorita)

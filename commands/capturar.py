@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import asyncpg
-import string
 
 from .embed import (
     embed_captura_detalhada,
@@ -10,20 +9,7 @@ from .embed import (
 )
 
 from systems.raridades import calcular_biscoitos_ganhos
-
-# --- SISTEMA DE EMBARALHAMENTO DO ID GLOBAL (TCG STYLE) ---
-ALFABETO = string.digits + string.ascii_uppercase  # 36 caracteres
-PRIMO = 41359727
-MODULO = 36**6  # 2.176.782.336 combinações possíveis
-
-def numero_para_codigo_aleatorio(num: int) -> str:
-    """Embaralha o ID SERIAL único do banco em um hash de 6 dígitos."""
-    embaralhado = (num * PRIMO) % MODULO
-    codigo = ""
-    for _ in range(6):
-        embaralhado, resto = divmod(embaralhado, 36)
-        codigo = ALFABETO[resto] + codigo
-    return codigo
+from systems.utils import numero_para_codigo_aleatorio
 
 
 class Capturar(commands.Cog):

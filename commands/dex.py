@@ -1,12 +1,14 @@
+import math
+import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
-import math
-import asyncpg
+
 from .embed import embed_dex
-from utils import formatar_lista_cartas
+from systems.utils import formatar_lista_cartas
 
 ITENS_POR_PAGINA = 10
+
 
 class DexView(discord.ui.View):
     def __init__(self, author_id, lista_ids, dados_cartas, total_paginas, cog):
@@ -20,10 +22,11 @@ class DexView(discord.ui.View):
         self.atualizar_botoes()
 
     def atualizar_botoes(self):
-        self.btn_primeira.disabled = self.pagina_atual == 1
-        self.btn_anterior.disabled = self.pagina_atual == 1
-        self.btn_proxima.disabled = self.pagina_atual == self.total_paginas
-        self.btn_ultima.disabled = self.pagina_atual == self.total_paginas
+        is_paginado = self.total_paginas > 1
+        self.btn_primeira.disabled = not is_paginado or self.pagina_atual == 1
+        self.btn_anterior.disabled = not is_paginado or self.pagina_atual == 1
+        self.btn_proxima.disabled = not is_paginado or self.pagina_atual == self.total_paginas
+        self.btn_ultima.disabled = not is_paginado or self.pagina_atual == self.total_paginas
 
     async def atualizar_embed(self, interaction: discord.Interaction):
         descricao = self.cog.montar_descricao(self.lista_ids, self.dados_cartas, self.pagina_atual)
@@ -80,29 +83,28 @@ class Dex(commands.Cog):
             return
 
         async with self.pool.acquire() as conn:
-            # CORREÇÃO: Usamos COUNT(*) pois cada carta capturada é um registro único na tabela
             rows = await conn.fetch("""
                 SELECT carta_id, COUNT(*) AS total
                 FROM inventario_cartas
                 WHERE membro_id = $1
                 GROUP BY carta_id;
             """, str_user_id)
-        
-        # Mapeia as quantidades obtidas pelo usuário para cruzamento ágil
+
+        # Mapeia as quantidades obtidas pelo usuário
         inventario_usuario = {row["carta_id"]: row["total"] for row in rows}
 
         cartas_dict = {}
         # Reconstrói a estrutura esperada utilizando os dados em memória (bot.dex)
         for carta_id, dados in self.bot.dex.items():
-            box = dados["numero_dex"]
-            
+            box = str(dados["numero_dex"]).zfill(4)
+
             if box not in cartas_dict:
                 cartas_dict[box] = {
                     "nome": dados["nome"],
                     "total_usuario": 0,
                     "skins_capturadas": {}
                 }
-            
+
             qtd = inventario_usuario.get(carta_id, 0)
             if qtd > 0:
                 cartas_dict[box]["total_usuario"] += qtd
@@ -118,7 +120,7 @@ class Dex(commands.Cog):
 
         total_paginas = math.ceil(len(lista_completa) / ITENS_POR_PAGINA)
         view = DexView(user_id, lista_completa, cartas_dict, total_paginas, self)
-        
+
         descricao = self.montar_descricao(lista_completa, cartas_dict, 1)
         embed = embed_dex(descricao, 1, total_paginas, len(lista_completa))
 
