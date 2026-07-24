@@ -15,13 +15,27 @@ CARTAS_CACHE = {}
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # URL Base para baixar as imagens das cartas direto do repositório
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/dancomk/CartoonDex/main/assets/cartas"
+GITHUB_RAW_URL = os.getenv(
+    "GITHUB_BASE",
+    "https://raw.githubusercontent.com/dancomk/CartoonDex/main/assets/cartas"
+)
 
 # Caminho relativo para carregar as fontes que acompanham o bot no projeto
 PASTA_RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASTA_FONTES = os.path.join(PASTA_RAIZ, "assets", "fontes")
 FONTE_CREWNIVERSE = os.path.join(PASTA_FONTES, "CREWNIVERSE_FONT.TTF")
 FONTE_MONTSERRAT = os.path.join(PASTA_FONTES, "MONTSERRAT-SEMIBOLD.OTF")
+
+
+def _carregar_fonte(caminho, tamanho):
+    """Carrega fonte customizada com fallback seguro para a fonte padrão."""
+    try:
+        if os.path.exists(caminho):
+            return ImageFont.truetype(caminho, tamanho)
+    except Exception:
+        pass
+    return ImageFont.load_default()
+
 
 # =============================================================================
 # FUNÇÕES DE DESENHO E FORMATADORAS
@@ -138,7 +152,7 @@ def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
 
     # Estilo Full Art vs Normal
     full_art_val = dados_carta.get("full_art")
-    is_full_art = full_art_val is not None and str(full_art_val).strip().lower() == "sim"
+    is_full_art = full_art_val is not None and str(full_art_val).strip().lower() in ["sim", "true", "1"]
 
     if is_full_art:
         cor_texto = (0, 0, 0)
@@ -149,8 +163,8 @@ def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
         cor_borda = None
         espessura_borda = 0
 
-    fonte_estrela_custo = ImageFont.truetype(FONTE_CREWNIVERSE, 24)
-    fonte_num_custo = ImageFont.truetype(FONTE_CREWNIVERSE, 21)
+    fonte_estrela_custo = _carregar_fonte(FONTE_CREWNIVERSE, 24)
+    fonte_num_custo = _carregar_fonte(FONTE_CREWNIVERSE, 21)
 
     # NOME DA CARTA / SKIN (Substituído por '?????' em caso de spawn)
     if eh_spawn:
@@ -160,7 +174,7 @@ def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
 
     if nome_exibir:
         tamanho_fonte = 28
-        fonte_nome = ImageFont.truetype(FONTE_CREWNIVERSE, tamanho_fonte)
+        fonte_nome = _carregar_fonte(FONTE_CREWNIVERSE, tamanho_fonte)
         
         while tamanho_fonte > 10:
             bbox = draw.textbbox((0, 0), str(nome_exibir), font=fonte_nome)
@@ -168,21 +182,21 @@ def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
             if largura <= 280:
                 break
             tamanho_fonte -= 1
-            fonte_nome = ImageFont.truetype(FONTE_CREWNIVERSE, tamanho_fonte)
+            fonte_nome = _carregar_fonte(FONTE_CREWNIVERSE, tamanho_fonte)
 
         desenhar_texto_com_borda(draw, (185, 200), nome_exibir, fonte_nome, cor_texto, cor_borda, espessura_borda, anchor="ls")
 
     # ORIGEM
     origem = dados_carta.get("origem")
     if origem:
-        fonte_origem = ImageFont.truetype(FONTE_CREWNIVERSE, 12)
+        fonte_origem = _carregar_fonte(FONTE_CREWNIVERSE, 12)
         desenhar_texto_com_borda(draw, (185, 220), origem, fonte_origem, cor_texto, cor_borda, espessura_borda, anchor="ls")
 
     # VIDA (HP)
     hp = dados_carta.get("hp")
     if hp is not None:
-        fonte_vida_rotulo = ImageFont.truetype(FONTE_CREWNIVERSE, 12)
-        fonte_vida_num = ImageFont.truetype(FONTE_CREWNIVERSE, 48)
+        fonte_vida_rotulo = _carregar_fonte(FONTE_CREWNIVERSE, 12)
+        fonte_vida_num = _carregar_fonte(FONTE_CREWNIVERSE, 48)
 
         str_hp = str(hp)
         bbox_num = draw.textbbox((0, 0), str_hp, font=fonte_vida_num)
@@ -209,12 +223,12 @@ def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
 
     hab1_nome = hab1.get("nome")
     if hab1_nome:
-        fonte_hab = ImageFont.truetype(FONTE_CREWNIVERSE, 21)
+        fonte_hab = _carregar_fonte(FONTE_CREWNIVERSE, 21)
         desenhar_texto_com_borda(draw, (240, y_hab1), hab1_nome, fonte_hab, cor_texto, cor_borda, espessura_borda, anchor="ls")
 
     hab1_dano = hab1.get("dano")
     if hab1_dano is not None:
-        fonte_hab = ImageFont.truetype(FONTE_CREWNIVERSE, 21)
+        fonte_hab = _carregar_fonte(FONTE_CREWNIVERSE, 21)
         desenhar_texto_com_borda(draw, (615, y_hab1), str(hab1_dano), fonte_hab, cor_texto, cor_borda, espessura_borda, anchor="rs")
         
         if hab1.get("efeito") == "DANO_EM_AREA":
@@ -222,7 +236,7 @@ def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
 
     hab1_desc = hab1.get("descricao")
     if hab1_desc:
-        fonte_desc = ImageFont.truetype(FONTE_MONTSERRAT, 16)
+        fonte_desc = _carregar_fonte(FONTE_MONTSERRAT, 16)
         linhas = quebrar_texto(hab1_desc, fonte_desc, 430, draw)
         y_cursor = 680
         for linha in linhas:
@@ -245,12 +259,12 @@ def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
 
     hab2_nome = hab2.get("nome")
     if hab2_nome:
-        fonte_hab = ImageFont.truetype(FONTE_CREWNIVERSE, 21)
+        fonte_hab = _carregar_fonte(FONTE_CREWNIVERSE, 21)
         desenhar_texto_com_borda(draw, (240, y_hab2), hab2_nome, fonte_hab, cor_texto, cor_borda, espessura_borda, anchor="ls")
 
     hab2_dano = hab2.get("dano")
     if hab2_dano is not None:
-        fonte_hab = ImageFont.truetype(FONTE_CREWNIVERSE, 21)
+        fonte_hab = _carregar_fonte(FONTE_CREWNIVERSE, 21)
         desenhar_texto_com_borda(draw, (615, y_hab2), str(hab2_dano), fonte_hab, cor_texto, cor_borda, espessura_borda, anchor="rs")
         
         if hab2.get("efeito") == "DANO_EM_AREA":
@@ -258,7 +272,7 @@ def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
 
     hab2_desc = hab2.get("descricao")
     if hab2_desc:
-        fonte_desc = ImageFont.truetype(FONTE_MONTSERRAT, 16)
+        fonte_desc = _carregar_fonte(FONTE_MONTSERRAT, 16)
         linhas = quebrar_texto(hab2_desc, fonte_desc, 430, draw)
         y_cursor = 795
         for linha in linhas:
@@ -267,7 +281,7 @@ def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
 
     # ARTE: ARTISTA
     artista = dados_carta.get("artista")
-    fonte_rodape = ImageFont.truetype(FONTE_CREWNIVERSE, 12)
+    fonte_rodape = _carregar_fonte(FONTE_CREWNIVERSE, 12)
 
     nome_artista = str(artista).strip().upper() if artista else "SEM INFORMAÇÕES"
     texto_artista = f"ARTE: {nome_artista}"
@@ -282,6 +296,14 @@ def renderizar_carta(dados_carta, carta_id, eh_spawn: bool = False):
         desenhar_texto_com_borda(draw, (615, 915), str_carta_id, fonte_rodape, cor_texto, cor_borda, espessura_borda, anchor="rs")
 
     return img
+
+
+def gerar_carta_individual(dados_carta, carta_id, eh_spawn: bool = False):
+    """
+    Função alias/atalho requisitada diretamente no bot.py.
+    Retorna o objeto PIL Image gerado.
+    """
+    return renderizar_carta(dados_carta, carta_id, eh_spawn=eh_spawn)
 
 
 # =============================================================================
